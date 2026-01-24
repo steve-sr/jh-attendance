@@ -1,31 +1,78 @@
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Editar joven</title></head>
-<body>
-  <h2>Editar joven</h2>
-  <p><a href="/youth">Volver</a></p>
+{% extends "base.html" %}
+{% block title %}Editar joven - JH{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for c,m in messages %}<p><b>{{c}}:</b> {{m}}</p>{% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Editar joven</h3>
+    <div class="text-muted">Actualizá la información del asistente</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="/youth">Volver</a>
+</div>
 
-  <form method="post">
-    <p><b>Cédula:</b> {{y.cedula}}</p>
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="card p-4">
+      <h6 class="text-muted mb-1">Cédula</h6>
+      <div class="fs-5 fw-bold">{{ y.cedula }}</div>
 
-    <label>Nombre completo</label><br>
-    <input name="full_name" value="{{y.full_name}}" required><br><br>
+      <hr>
 
-    <label>Teléfono</label><br>
-    <input name="phone" value="{{y.phone}}" required><br><br>
+      <div class="text-muted small">
+        Tip: revisá el nombre y teléfono antes de guardar. El barrio se usa para estadísticas por zona.
+      </div>
+    </div>
+  </div>
 
-    <label>Barrio</label><br>
-    <select name="barrio_id" required>
-      {% for b in barrios %}
-        <option value="{{b.id}}" {% if b.id == y.barrio_id %}selected{% endif %}>{{b.name}}</option>
-      {% endfor %}
-    </select><br><br>
+  <div class="col-12 col-lg-7">
+    <div class="card p-4">
+      <form method="post" class="needs-validation" novalidate>
+        <div class="mb-3">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-control" name="full_name" value="{{ y.full_name }}" required>
+          <div class="invalid-feedback">Este campo es obligatorio.</div>
+        </div>
 
-    <button type="submit">Guardar ✅</button>
-  </form>
-</body>
-</html>
+        <div class="mb-3">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" name="phone" value="{{ y.phone }}" required>
+          <div class="form-text">Ej: 8888-8888</div>
+          <div class="invalid-feedback">Este campo es obligatorio.</div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label">Barrio</label>
+          <select class="form-select" name="barrio_id" required>
+            {% for b in barrios %}
+              <option value="{{ b.id }}" {% if b.id == y.barrio_id %}selected{% endif %}>
+                {{ b.name }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="invalid-feedback">Seleccioná un barrio.</div>
+        </div>
+
+        <div class="d-grid d-sm-flex gap-2">
+          <button class="btn btn-primary" type="submit">Guardar cambios ✅</button>
+          <a class="btn btn-outline-secondary" href="/youth">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const forms = document.querySelectorAll('.needs-validation')
+  Array.from(forms).forEach(form => {
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      form.classList.add('was-validated')
+    }, false)
+  })
+})()
+</script>
+{% endblock %}

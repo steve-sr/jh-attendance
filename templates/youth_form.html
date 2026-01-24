@@ -1,37 +1,81 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Nuevo Joven - JH</title>
-</head>
-<body>
-  <h2>Registrar joven</h2>
-  <p><a href="/youth">Volver</a></p>
+{% extends "base.html" %}
+{% block title %}Nuevo joven - JH{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for c,m in messages %}
-      <p><b>{{c}}:</b> {{m}}</p>
-    {% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Nuevo joven</h3>
+    <div class="text-muted">Registrá un asistente para futuras asistencias</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="/youth">Volver</a>
+</div>
 
-  <form method="post">
-    <label>Cédula</label><br>
-    <input name="cedula" required><br><br>
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="card p-4">
+      <h5 class="fw-bold mb-2">Recomendaciones</h5>
+      <ul class="text-muted mb-0">
+        <li>Usá la cédula exactamente como la maneja la iglesia.</li>
+        <li>Teléfono: mejor con formato 8 dígitos o con guion (opcional).</li>
+        <li>El barrio ayuda a entender de dónde vienen más jóvenes.</li>
+      </ul>
+    </div>
+  </div>
 
-    <label>Nombre completo</label><br>
-    <input name="full_name" required><br><br>
+  <div class="col-12 col-lg-7">
+    <div class="card p-4">
+      <form method="post" class="needs-validation" novalidate>
+        <div class="mb-3">
+          <label class="form-label">Cédula</label>
+          <input class="form-control" name="cedula" placeholder="Ej: 1-234-567" required autofocus>
+          <div class="form-text">Debe ser única. Si ya existe, el sistema te avisará.</div>
+          <div class="invalid-feedback">Este campo es obligatorio.</div>
+        </div>
 
-    <label>Teléfono</label><br>
-    <input name="phone" required><br><br>
+        <div class="mb-3">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-control" name="full_name" placeholder="Ej: Juan Pérez" required>
+          <div class="invalid-feedback">Este campo es obligatorio.</div>
+        </div>
 
-    <label>Barrio</label><br>
-    <select name="barrio_id" required>
-      {% for b in barrios %}
-        <option value="{{b.id}}">{{b.name}}</option>
-      {% endfor %}
-    </select><br><br>
+        <div class="mb-3">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" name="phone" placeholder="Ej: 8888-8888" required>
+          <div class="invalid-feedback">Este campo es obligatorio.</div>
+        </div>
 
-    <button type="submit">Guardar ✅</button>
-  </form>
-</body>
-</html>
+        <div class="mb-4">
+          <label class="form-label">Barrio</label>
+          <select class="form-select" name="barrio_id" required>
+            <option value="" selected disabled>Seleccioná un barrio...</option>
+            {% for b in barrios %}
+              <option value="{{ b.id }}">{{ b.name }}</option>
+            {% endfor %}
+          </select>
+          <div class="invalid-feedback">Seleccioná un barrio.</div>
+        </div>
+
+        <div class="d-grid d-sm-flex gap-2">
+          <button class="btn btn-primary" type="submit">Guardar</button>
+          <a class="btn btn-outline-secondary" href="/youth">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const forms = document.querySelectorAll('.needs-validation')
+  Array.from(forms).forEach(form => {
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      form.classList.add('was-validated')
+    }, false)
+  })
+})()
+</script>
+{% endblock %}
