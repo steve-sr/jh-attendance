@@ -1,0 +1,32 @@
+:root{
+  --jh-bg: #0b1220;
+  --jh-card: #111a2e;
+}
+
+.bg-soft{
+  background: linear-gradient(180deg, #f6f7fb 0%, #eef1f7 100%);
+}
+
+.card{
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.06);
+}
+
+.table thead th{
+  white-space: nowrap;
+}
+
+.badge-soft{
+  background: rgba(13,110,253,.12);
+  color: #0d6efd;
+  border: 1px solid rgba(13,110,253,.18);
+}
+
+.input-group .form-control:focus{
+  box-shadow: none;
+}
+
+.btn{
+  border-radius: 12px;
+}

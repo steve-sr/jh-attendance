@@ -1,63 +1,114 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Asistencia - Servicio activo</title>
-</head>
-<body>
-  <h2>Asistencia - Servicio activo</h2>
-  <p><a href="/">Volver</a></p>
+{% extends "base.html" %}
+{% block title %}Asistencia - JH{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for c,m in messages %}
-      <p><b>{{c}}:</b> {{m}}</p>
-    {% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Asistencia</h3>
+    <div class="text-muted">Registrar asistencia del servicio seleccionado</div>
+  </div>
+  <a class="btn btn-outline-primary" href="{{ url_for('select_service') }}">Cambiar servicio</a>
+</div>
 
-  {% if not active %}
-    <p><b>No hay servicio activo.</b> (Pídale al admin que lo abra)</p>
-  {% else %}
+{% if not active %}
+  <div class="card p-4">
+    <h5 class="fw-bold mb-1">No hay servicio seleccionado</h5>
+    <p class="text-muted mb-3">Primero elegí un servicio activo para comenzar a registrar asistencia.</p>
+    <a class="btn btn-primary" href="{{ url_for('select_service') }}">Elegir servicio activo</a>
+  </div>
+{% else %}
 
-    <p><b>{{active.title}}</b></p>
+  <div class="row g-3">
+    <div class="col-12 col-lg-5">
+      <div class="card p-4">
+        <div class="d-flex align-items-start justify-content-between gap-3">
+          <div>
+            <div class="text-muted small">Servicio</div>
+            <h5 class="fw-bold mb-1">{{ active.title }}</h5>
+            <div class="text-muted small">{{ active.service_date }} • {{ active.starts_at }}</div>
+          </div>
+          <span class="badge text-bg-success mt-1">Activo</span>
+        </div>
 
-    <h3>Registrar por cédula</h3>
-    <form method="post" action="/attendance/active/register">
-      <input name="cedula" placeholder="Cédula" required autofocus>
-      <button type="submit">Registrar ✅</button>
-    </form>
+        <hr>
 
-    <hr>
+        <h6 class="fw-bold mb-2">Registrar por cédula</h6>
+        <form method="post" action="{{ url_for('attendance_register_active') }}">
+          <div class="input-group">
+            <input class="form-control" name="cedula" placeholder="Ej: 1-234-567" required autofocus>
+            <button class="btn btn-primary" type="submit">Registrar</button>
+          </div>
+          <div class="form-text">Tip: digitá la cédula y presioná Enter.</div>
+        </form>
 
-    <h3>Buscar por nombre o cédula</h3>
-    <form method="get" action="/attendance/active">
-      <input name="q" placeholder="Ej: Juan o 1-234-567" value="{{q}}">
-      <button type="submit">Buscar</button>
-    </form>
+        <hr>
 
-    {% if candidates and q %}
-      <h4>Resultados</h4>
-      <ul>
-        {% for y in candidates %}
-          <li>
-            <b>{{y.full_name}}</b> — {{y.cedula}} — {{y.phone}}
-            <form style="display:inline" method="post" action="/attendance/active/register">
-              <input type="hidden" name="cedula" value="{{y.cedula}}">
-              <button type="submit">Registrar</button>
-            </form>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
+        <h6 class="fw-bold mb-2">Buscar por nombre o cédula</h6>
+        <form method="get" action="{{ url_for('attendance_active') }}">
+          <div class="input-group">
+            <input class="form-control" name="q" placeholder="Ej: Juan o 1-234" value="{{ q }}">
+            <button class="btn btn-outline-primary" type="submit">Buscar</button>
+          </div>
+        </form>
 
-    <hr>
+        {% if candidates and q %}
+          <div class="mt-3">
+            <div class="text-muted small mb-2">Resultados</div>
+            <div class="list-group">
+              {% for y in candidates %}
+                <div class="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div>
+                    <div class="fw-semibold">{{ y.full_name }}</div>
+                    <div class="text-muted small">{{ y.cedula }} • {{ y.phone }}</div>
+                  </div>
+                  <form method="post" action="{{ url_for('attendance_register_active') }}">
+                    <input type="hidden" name="cedula" value="{{ y.cedula }}">
+                    <button class="btn btn-sm btn-primary" type="submit">Registrar</button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
 
-    <h3>Lista del servicio activo</h3>
-    <ol>
-      {% for att, y in rows %}
-        <li>{{y.full_name}} — {{y.cedula}} — {{att.registered_at}}</li>
-      {% endfor %}
-    </ol>
+    <div class="col-12 col-lg-7">
+      <div class="card p-3 p-md-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h5 class="fw-bold mb-0">Lista del servicio</h5>
+          <span class="badge badge-soft px-3 py-2">Registros: {{ rows|length }}</span>
+        </div>
 
-  {% endif %}
-</body>
-</html>
+        {% if rows|length == 0 %}
+          <p class="text-muted mb-0">Aún no hay asistencias registradas.</p>
+        {% else %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nombre</th>
+                  <th>Cédula</th>
+                  <th class="text-nowrap">Hora</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for att, y in rows %}
+                  <tr>
+                    <td class="text-muted">{{ loop.index }}</td>
+                    <td class="fw-semibold">{{ y.full_name }}</td>
+                    <td class="text-nowrap">{{ y.cedula }}</td>
+                    <td class="text-nowrap">{{ att.registered_at }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+{% endif %}
+{% endblock %}

@@ -1,36 +1,27 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Jóvenes - JH</title>
-</head>
-<body>
-  <h2>Jóvenes</h2>
-  <p><a href="/">Volver</a> | <a href="/youth/new">+ Nuevo joven</a></p>
+{% extends "base.html" %}
+{% block title %}Jóvenes - JH{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for c,m in messages %}
-      <p><b>{{c}}:</b> {{m}}</p>
-    {% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Jóvenes</h3>
+    <div class="text-muted">Registro y edición de asistentes</div>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('youth_new') }}">+ Nuevo joven</a>
+</div>
 
-  <table border="1" cellpadding="6">
-    <tr>
-      <th>Cédula</th>
-      <th>Nombre</th>
-      <th>Teléfono</th>
-      <th>Barrio</th>
-      <th>Acciones</th>
-    </tr>
-    {% for y in youth %}
-    <tr>
-      <td>{{ y.cedula }}</td>
-      <td>{{ y.full_name }}</td>
-      <td>{{ y.phone }}</td>
-      <td>{{ y.barrio.name }}</td>
-      <td><a href="{{ url_for('youth_edit', cedula=y.cedula) }}">Editar</a></td>
-    </tr>
-    {% endfor %}
-  </table>
-</body>
-</html>
+<div class="card p-3 p-md-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <span class="badge badge-soft px-3 py-2">Total: {{ youth|length }}</span>
+  </div>
+
+  {% if youth|length == 0 %}
+    <p class="text-muted mb-0">No hay jóvenes registrados todavía.</p>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th class="text-nowrap">Cédula</th>
+            <th class="text-nowrap">Teléf

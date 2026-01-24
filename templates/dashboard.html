@@ -1,36 +1,47 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Dashboard - JH</title>
-</head>
-<body>
-  <h2>Dashboard</h2>
+{% extends "base.html" %}
+{% block title %}Dashboard - JH{% endblock %}
 
-  <p>Hola, <b>{{ current_user.username }}</b> ({{ current_user.role }})</p>
-  <p><a href="/logout">Salir</a></p>
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h2 class="fw-bold mb-0">Dashboard</h2>
+    <div class="text-muted">Hola, <b>{{ current_user.username }}</b> ({{ current_user.role }})</div>
+  </div>
+  <span class="badge badge-soft px-3 py-2">Servicios activos: {{ active_count }}</span>
+</div>
 
-  <p><b>Servicios activos:</b> {{ active_count }}</p>
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="card p-4">
+      <h5 class="fw-bold mb-2">Servicio seleccionado</h5>
 
-  {% if active_count == 0 %}
-    <p><b>No hay servicios activos.</b></p>
-    {% if current_user.role == "ADMIN" %}
-      <p><a href="/admin/services">Ir a administrar servicios</a></p>
-    {% endif %}
-  {% else %}
-    <p><a href="/services/select">Elegir servicio activo</a></p>
+      {% if selected %}
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <span class="badge text-bg-primary">{{ selected.service_date }}</span>
+          <span class="fw-semibold">{{ selected.title }}</span>
+        </div>
 
-    {% if selected %}
-      <p><b>Servicio seleccionado:</b> {{ selected.title }}</p>
-      <p><a href="/attendance/active">Tomar asistencia</a></p>
-    {% else %}
-      <p><b>No has seleccionado un servicio todavía.</b></p>
-    {% endif %}
-  {% endif %}
+        <div class="d-grid d-sm-flex gap-2">
+          <a class="btn btn-primary" href="{{ url_for('attendance_active') }}">Tomar asistencia</a>
+          <a class="btn btn-outline-primary" href="{{ url_for('select_service') }}">Cambiar servicio</a>
+        </div>
+      {% else %}
+        <p class="text-muted">Aún no has seleccionado un servicio activo.</p>
+        <a class="btn btn-primary" href="{{ url_for('select_service') }}">Elegir servicio</a>
+      {% endif %}
+    </div>
+  </div>
 
-  <hr>
-
-  <p><a href="/youth">Jóvenes</a></p>
-
-</body>
-</html>
+  <div class="col-12 col-lg-5">
+    <div class="card p-4">
+      <h5 class="fw-bold mb-3">Accesos rápidos</h5>
+      <div class="d-grid gap-2">
+        <a class="btn btn-outline-dark" href="{{ url_for('youth_list') }}">Gestionar jóvenes</a>
+        {% if current_user.role == "ADMIN" %}
+          <a class="btn btn-outline-dark" href="{{ url_for('admin_services') }}">Administrar servicios</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

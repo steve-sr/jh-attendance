@@ -1,22 +1,27 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Login - JH</title>
-</head>
-<body>
-  <h2>JH - Iniciar sesión</h2>
+{% extends "base.html" %}
+{% block title %}Login - JH{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for c,m in messages %}
-      <p><b>{{c}}:</b> {{m}}</p>
-    {% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-10 col-md-6 col-lg-4">
+    <div class="card p-4">
+      <h3 class="fw-bold mb-1">Iniciar sesión</h3>
+      <p class="text-muted mb-4">Acceso al sistema de asistencia JH</p>
 
-  <form method="post">
-    <input name="username" placeholder="Usuario" required><br><br>
-    <input name="password" placeholder="Contraseña" type="password" required><br><br>
-    <button type="submit">Entrar</button>
-  </form>
-</body>
-</html>
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label">Usuario</label>
+          <input class="form-control" name="username" required autofocus>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Contraseña</label>
+          <input class="form-control" type="password" name="password" required>
+        </div>
+
+        <button class="btn btn-dark w-100">Entrar</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

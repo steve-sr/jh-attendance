@@ -1,54 +1,110 @@
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Admin - Servicios</title></head>
-<body>
-  <h2>Admin - Servicios</h2>
-  <p><a href="/">Volver</a></p>
+{% extends "base.html" %}
+{% block title %}Admin - Servicios{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for c,m in messages %}<p><b>{{c}}:</b> {{m}}</p>{% endfor %}
-  {% endwith %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Administrar servicios</h3>
+    <div class="text-muted">Crear, activar/desactivar y revisar asistencias</div>
+  </div>
+</div>
 
-  <h3>Crear servicio</h3>
-  <form method="post">
-    <input type="hidden" name="action" value="create">
-    <input name="title" placeholder="Ej: JH Sábado / Reunión Especial" required>
-    <input type="date" name="service_date" required>
-    <input type="time" name="start_time" required>
-    <button type="submit">Crear ✅</button>
-  </form>
+<div class="row g-3">
+  <div class="col-12 col-lg-4">
+    <div class="card p-4">
+      <h5 class="fw-bold mb-3">Crear servicio</h5>
 
-  <hr>
+      <form method="post">
+        <input type="hidden" name="action" value="create">
 
-  <h3>Listado</h3>
-  <table border="1" cellpadding="6">
-    <tr>
-      <th>Fecha</th>
-      <th>Hora</th>
-      <th>Título</th>
-      <th>Activo</th>
-      <th>Acciones</th>
-      <th>Asistencia</th>
-    </tr>
-    {% for s in services %}
-      <tr>
-        <td>{{s.service_date}}</td>
-        <td>{{s.starts_at}}</td>
-        <td>{{s.title}}</td>
-        <td>{{ 'Sí' if s.is_active else 'No' }}</td>
-        <td>
-          <form style="display:inline" method="post">
-            <input type="hidden" name="action" value="toggle">
-            <input type="hidden" name="service_id" value="{{s.id}}">
-            <button type="submit">{{ 'Desactivar' if s.is_active else 'Activar' }}</button>
-          </form>
-        </td>
-        <td>
-          <a href="/admin/attendance/{{s.id}}">Ver</a> |
-          <a href="/admin/attendance/{{s.id}}/export.csv">CSV</a>
-        </td>
-      </tr>
-    {% endfor %}
-  </table>
-</body>
-</html>
+        <div class="mb-3">
+          <label class="form-label">Título</label>
+          <input class="form-control" name="title" placeholder="Ej: JH Sábado / Reunión Especial" required>
+        </div>
+
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Fecha</label>
+            <input class="form-control" type="date" name="service_date" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Hora</label>
+            <input class="form-control" type="time" name="start_time" required>
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100 mt-3">Crear ✅</button>
+      </form>
+
+      <hr>
+      <div class="text-muted small">
+        Tip: Podés activar varios servicios al mismo tiempo para que los operativos elijan.
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-8">
+    <div class="card p-3 p-md-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h5 class="fw-bold mb-0">Listado</h5>
+        <span class="badge badge-soft px-3 py-2">Mostrando: {{ services|length }}</span>
+      </div>
+
+      {% if services|length == 0 %}
+        <p class="text-muted mb-0">No hay servicios creados todavía.</p>
+      {% else %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th class="text-nowrap">Fecha</th>
+                <th class="text-nowrap">Hora</th>
+                <th>Servicio</th>
+                <th>Estado</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in services %}
+                <tr>
+                  <td class="text-nowrap">{{ s.service_date }}</td>
+                  <td class="text-nowrap">{{ s.starts_at }}</td>
+                  <td class="fw-semibold">{{ s.title }}</td>
+                  <td>
+                    {% if s.is_active %}
+                      <span class="badge text-bg-success">Activo</span>
+                    {% else %}
+                      <span class="badge text-bg-secondary">Inactivo</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <form class="d-inline" method="post">
+                      <input type="hidden" name="action" value="toggle">
+                      <input type="hidden" name="service_id" value="{{ s.id }}">
+                      {% if s.is_active %}
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Desactivar</button>
+                      {% else %}
+                        <button class="btn btn-sm btn-outline-success" type="submit">Activar</button>
+                      {% endif %}
+                    </form>
+
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="{{ url_for('admin_attendance', service_id=s.id) }}">
+                      Ver
+                    </a>
+
+                    <a class="btn btn-sm btn-outline-dark"
+                       href="/admin/attendance/{{ s.id }}/export.csv">
+                      CSV
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
