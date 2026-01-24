@@ -24,6 +24,12 @@ def main():
         if code != 0:
             print("❌ seed_admin.py failed.", flush=True)
             return code
+        
+    if os.path.exists("seed_operatives.py"):
+        code = run([sys.executable, "seed_operatives.py"])
+        if code != 0:
+            print("❌ seed_operatives.py failed.", flush=True)
+            return code
 
     if os.path.exists("seed_barrios.py"):
         code = run([sys.executable, "seed_barrios.py"])
