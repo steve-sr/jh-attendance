@@ -9,6 +9,7 @@ from sqlalchemy import text
 from config import Config
 from models import db, User, Youth, Barrio, Service, Attendance
 from helpers import role_required
+import traceback
 
 
 app = Flask(__name__)
@@ -84,8 +85,13 @@ def logout():
 @login_required
 @role_required("OPERATIVE", "ADMIN")
 def youth_list():
-    youth = Youth.query.order_by(Youth.full_name.asc()).limit(500).all()
-    return render_template("youth_list.html", youth=youth)
+    youth_rows = (db.session.query(Youth, Barrio)
+                  .outerjoin(Barrio, Barrio.id == Youth.barrio_id)
+                  .order_by(Youth.full_name.asc())
+                  .limit(500)
+                  .all())
+    return render_template("youth_list.html", youth_rows=youth_rows)
+
 
 @app.route("/youth/new", methods=["GET", "POST"])
 @login_required
@@ -106,7 +112,7 @@ def youth_new():
         y = Youth(cedula=cedula, full_name=full_name, phone=phone, barrio_id=barrio_id)
         db.session.add(y)
         db.session.commit()
-        flash("Joven registrado ✅", "success")
+        flash("Joven registrado", "success")
         return redirect(url_for("youth_list"))
 
     return render_template("youth_form.html", barrios=barrios)
@@ -123,7 +129,7 @@ def youth_edit(cedula):
         y.phone = request.form["phone"].strip()
         y.barrio_id = int(request.form["barrio_id"])
         db.session.commit()
-        flash("Joven actualizado ✅", "success")
+        flash("Joven actualizado", "success")
         return redirect(url_for("youth_list"))
 
     return render_template("youth_edit.html", y=y, barrios=barrios)
@@ -159,7 +165,7 @@ def admin_services():
             )
             db.session.add(s)
             db.session.commit()
-            flash("Servicio creado ✅ (puedes activarlo)", "success")
+            flash("Servicio creado (puedes activarlo)", "success")
 
         elif action == "toggle":
             service_id = int(request.form.get("service_id"))
@@ -167,7 +173,7 @@ def admin_services():
             s.is_active = not s.is_active
             s.ends_at = None if s.is_active else datetime.now()
             db.session.commit()
-            flash("Estado actualizado ✅", "success")
+            flash("Estado actualizado", "success")
 
     services = Service.query.order_by(Service.starts_at.desc()).limit(200).all()
     return render_template("admin_services.html", services=services)
@@ -295,12 +301,18 @@ def attendance_register_active():
         att = Attendance(service_id=active.id, youth_cedula=cedula, registered_by=current_user.id)
         db.session.add(att)
         db.session.commit()
-        flash("Asistencia registrada ✅", "success")
+        flash("Asistencia registrada", "success")
     except Exception:
         db.session.rollback()
         flash("Ya estaba registrado en este servicio.", "info")
 
     return redirect(url_for("attendance_active"))
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print("🔥 ERROR:", repr(e))
+    traceback.print_exc()
+    return "Error interno. Revisa logs en Render.", 500
 
 
 # -------------------------
@@ -309,7 +321,7 @@ def attendance_register_active():
 @app.get("/db-test")
 def db_test():
     db.session.execute(text("SELECT 1"))
-    return "DB OK ✅"
+    return "DB OK"
 
 
 if __name__ == "__main__":
