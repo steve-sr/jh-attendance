@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Editar joven</title></head>
+<body>
+  <h2>Editar joven</h2>
+  <p><a href="/youth">Volver</a></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for c,m in messages %}<p><b>{{c}}:</b> {{m}}</p>{% endfor %}
+  {% endwith %}
+
+  <form method="post">
+    <p><b>Cédula:</b> {{y.cedula}}</p>
+
+    <label>Nombre completo</label><br>
+    <input name="full_name" value="{{y.full_name}}" required><br><br>
+
+    <label>Teléfono</label><br>
+    <input name="phone" value="{{y.phone}}" required><br><br>
+
+    <label>Barrio</label><br>
+    <select name="barrio_id" required>
+      {% for b in barrios %}
+        <option value="{{b.id}}" {% if b.id == y.barrio_id %}selected{% endif %}>{{b.name}}</option>
+      {% endfor %}
+    </select><br><br>
+
+    <button type="submit">Guardar ✅</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nuevo Joven - JH</title>
+</head>
+<body>
+  <h2>Registrar joven</h2>
+  <p><a href="/youth">Volver</a></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for c,m in messages %}
+      <p><b>{{c}}:</b> {{m}}</p>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post">
+    <label>Cédula</label><br>
+    <input name="cedula" required><br><br>
+
+    <label>Nombre completo</label><br>
+    <input name="full_name" required><br><br>
+
+    <label>Teléfono</label><br>
+    <input name="phone" required><br><br>
+
+    <label>Barrio</label><br>
+    <select name="barrio_id" required>
+      {% for b in barrios %}
+        <option value="{{b.id}}">{{b.name}}</option>
+      {% endfor %}
+    </select><br><br>
+
+    <button type="submit">Guardar ✅</button>
+  </form>
+</body>
+</html>

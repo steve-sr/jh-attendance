@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Jóvenes - JH</title>
+</head>
+<body>
+  <h2>Jóvenes</h2>
+  <p><a href="/">Volver</a> | <a href="/youth/new">+ Nuevo joven</a></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for c,m in messages %}
+      <p><b>{{c}}:</b> {{m}}</p>
+    {% endfor %}
+  {% endwith %}
+
+  <table border="1" cellpadding="6">
+    <tr>
+      <th>Cédula</th>
+      <th>Nombre</th>
+      <th>Teléfono</th>
+      <th>Barrio</th>
+      <th>Acciones</th>
+    </tr>
+    {% for y in youth %}
+    <tr>
+      <td>{{ y.cedula }}</td>
+      <td>{{ y.full_name }}</td>
+      <td>{{ y.phone }}</td>
+      <td>{{ y.barrio.name }}</td>
+      <td><a href="{{ url_for('youth_edit', cedula=y.cedula) }}">Editar</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>

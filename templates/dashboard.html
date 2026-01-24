@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard - JH</title>
+</head>
+<body>
+  <h2>Dashboard</h2>
+
+  <p>Hola, <b>{{ current_user.username }}</b> ({{ current_user.role }})</p>
+  <p><a href="/logout">Salir</a></p>
+
+  <p><b>Servicios activos:</b> {{ active_count }}</p>
+
+  {% if active_count == 0 %}
+    <p><b>No hay servicios activos.</b></p>
+    {% if current_user.role == "ADMIN" %}
+      <p><a href="/admin/services">Ir a administrar servicios</a></p>
+    {% endif %}
+  {% else %}
+    <p><a href="/services/select">Elegir servicio activo</a></p>
+
+    {% if selected %}
+      <p><b>Servicio seleccionado:</b> {{ selected.title }}</p>
+      <p><a href="/attendance/active">Tomar asistencia</a></p>
+    {% else %}
+      <p><b>No has seleccionado un servicio todavía.</b></p>
+    {% endif %}
+  {% endif %}
+
+  <hr>
+
+  <p><a href="/youth">Jóvenes</a></p>
+
+</body>
+</html>

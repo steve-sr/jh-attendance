@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Asistencia - Servicio activo</title>
+</head>
+<body>
+  <h2>Asistencia - Servicio activo</h2>
+  <p><a href="/">Volver</a></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for c,m in messages %}
+      <p><b>{{c}}:</b> {{m}}</p>
+    {% endfor %}
+  {% endwith %}
+
+  {% if not active %}
+    <p><b>No hay servicio activo.</b> (Pídale al admin que lo abra)</p>
+  {% else %}
+
+    <p><b>{{active.title}}</b></p>
+
+    <h3>Registrar por cédula</h3>
+    <form method="post" action="/attendance/active/register">
+      <input name="cedula" placeholder="Cédula" required autofocus>
+      <button type="submit">Registrar ✅</button>
+    </form>
+
+    <hr>
+
+    <h3>Buscar por nombre o cédula</h3>
+    <form method="get" action="/attendance/active">
+      <input name="q" placeholder="Ej: Juan o 1-234-567" value="{{q}}">
+      <button type="submit">Buscar</button>
+    </form>
+
+    {% if candidates and q %}
+      <h4>Resultados</h4>
+      <ul>
+        {% for y in candidates %}
+          <li>
+            <b>{{y.full_name}}</b> — {{y.cedula}} — {{y.phone}}
+            <form style="display:inline" method="post" action="/attendance/active/register">
+              <input type="hidden" name="cedula" value="{{y.cedula}}">
+              <button type="submit">Registrar</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <hr>
+
+    <h3>Lista del servicio activo</h3>
+    <ol>
+      {% for att, y in rows %}
+        <li>{{y.full_name}} — {{y.cedula}} — {{att.registered_at}}</li>
+      {% endfor %}
+    </ol>
+
+  {% endif %}
+</body>
+</html>
