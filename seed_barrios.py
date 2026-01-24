@@ -32,6 +32,8 @@ BARRIOS = [
     "El Regalito",
     "San Rafael",
     "Gallo",
+    "Bagaces",
+    "Felipe Pérez",
 ]
 
 with app.app_context():
