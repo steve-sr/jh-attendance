@@ -35,6 +35,15 @@ BARRIOS = [
     "Bagaces",
     "Felipe Pérez",
     "Colorado",
+    "Quebrada Grande",
+    "Cañas Dulces",
+    "Guadalupe",
+    "Palmira",
+    "San Antonio",
+    "Barrio La Cruz",
+    "Santa Luisa",
+    "Los Ángeles",
+    "Santa Lucía",
 ]
 
 with app.app_context():
