@@ -13,7 +13,7 @@ with app.app_context():
             u = User(username=username, role="OPERATIVE", is_active=True)
             u.set_password(password)
             db.session.add(u)
-            print(f"✅ Creado: {username} / {password}")
+            print(f"Creado: {username} / {password}")
         else:
-            print(f"ℹ️ Ya existe: {username}")
+            print(f"Ya existe: {username}")
     db.session.commit()

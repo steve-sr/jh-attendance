@@ -15,7 +15,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
   <div class="container">
-    <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}">JH</a>
+    <a class="navbar-brand fw-bold" href="/">JH</a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navJH">
       <span class="navbar-toggler-icon"></span>
@@ -24,40 +24,28 @@
     <div class="collapse navbar-collapse" id="navJH">
       <ul class="navbar-nav ms-auto gap-1">
         {% if current_user.is_authenticated %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('youth_list') }}">Jóvenes</a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('select_service') }}">Servicios activos</a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('attendance_active') }}">Asistencia</a>
-          </li>
+          <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="/youth">Jóvenes</a></li>
+          <li class="nav-item"><a class="nav-link" href="/services/select">Servicios activos</a></li>
+          <li class="nav-item"><a class="nav-link" href="/attendance/active">Asistencia</a></li>
 
           {% if current_user.role == "ADMIN" %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('admin_services') }}">Admin</a>
-          </li>
+            <li class="nav-item"><a class="nav-link" href="/admin/services">Admin</a></li>
           {% endif %}
 
           <li class="nav-item">
-            <a class="btn btn-outline-light btn-sm ms-lg-2" href="{{ url_for('logout') }}">Salir</a>
+            <a class="btn btn-outline-light btn-sm ms-lg-2" href="/logout">Salir</a>
           </li>
         {% else %}
           <li class="nav-item">
-            <a class="btn btn-outline-light btn-sm" href="{{ url_for('login') }}">Login</a>
+            <a class="btn btn-outline-light btn-sm" href="/login">Login</a>
           </li>
         {% endif %}
       </ul>
     </div>
   </div>
 </nav>
+
 
 <main class="container my-4">
   {% with messages = get_flashed_messages(with_categories=true) %}
