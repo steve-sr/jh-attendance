@@ -34,6 +34,7 @@ BARRIOS = [
     "Gallo",
     "Bagaces",
     "Felipe Pérez",
+    "Colorado",
 ]
 
 with app.app_context():
