@@ -44,6 +44,7 @@ BARRIOS = [
     "Santa Luisa",
     "Los Ángeles",
     "Santa Lucía",
+    "El Peloncito",
 ]
 
 with app.app_context():
