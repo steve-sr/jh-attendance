@@ -4,6 +4,9 @@ from models import db, User
 OPERATIVOS = [
     ("oper1", "Oper1234!"),
     ("oper2", "Oper1234!"),
+    ("oper3", "Oper1234!"),
+    ("oper4", "Oper1234!"),
+    ("oper5", "Oper1234!"),
 ]
 
 with app.app_context():

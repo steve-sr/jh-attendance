@@ -205,21 +205,14 @@ def admin_attendance_export(service_id):
 
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "service_date", "service_title", "cedula", "full_name", "phone",
-        "barrio", "registered_at", "registered_by"
-    ])
+    writer.writerow(["cedula", "nombre", "contacto", "barrio"])
 
     for att, y, u in rows:
         writer.writerow([
-            str(s.service_date),
-            s.title,
             y.cedula,
             y.full_name,
             y.phone,
-            y.barrio.name if y.barrio else "",
-            att.registered_at.strftime("%Y-%m-%d %H:%M:%S") if att.registered_at else "",
-            u.username
+            y.barrio.name if y.barrio else ""
         ])
 
     csv_data = output.getvalue()
