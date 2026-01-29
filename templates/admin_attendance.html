@@ -1,37 +1,57 @@
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Asistencia - Admin</title></head>
-<body>
-  <h2>Asistencia (Admin)</h2>
-  <p><a href="/admin/services">Volver</a></p>
+{% extends "base.html" %}
+{% block title %}Asistencia (Admin) - JH{% endblock %}
 
-  <p><b>{{service.title}}</b> — {{service.service_date}}</p>
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Asistencia (Admin)</h3>
+    <div class="text-muted">
+      <span class="fw-semibold">{{ service.title }}</span> • {{ service.service_date }}
+    </div>
+  </div>
 
-  <p>
-    <a href="/admin/attendance/{{service.id}}/export.csv">Exportar CSV</a>
-  </p>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary" href="/admin/services">Volver</a>
+    <a class="btn btn-dark" href="/admin/attendance/{{ service.id }}/export.csv">Exportar CSV</a>
+  </div>
+</div>
 
-  <table border="1" cellpadding="6">
-    <tr>
-      <th>#</th>
-      <th>Cédula</th>
-      <th>Nombre</th>
-      <th>Teléfono</th>
-      <th>Barrio</th>
-      <th>Registrado</th>
-      <th>Por</th>
-    </tr>
-    {% for att, y, u in rows %}
-    <tr>
-      <td>{{loop.index}}</td>
-      <td>{{y.cedula}}</td>
-      <td>{{y.full_name}}</td>
-      <td>{{y.phone}}</td>
-      <td>{{y.barrio.name}}</td>
-      <td>{{att.registered_at}}</td>
-      <td>{{u.username}}</td>
-    </tr>
-    {% endfor %}
-  </table>
-</body>
-</html>
+<div class="card p-3 p-md-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <span class="badge badge-soft px-3 py-2">Registros: {{ rows|length }}</span>
+  </div>
+
+  {% if rows|length == 0 %}
+    <p class="text-muted mb-0">Aún no hay asistencias registradas para este servicio.</p>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th class="text-nowrap">Cédula</th>
+            <th>Nombre</th>
+            <th class="text-nowrap">Teléfono</th>
+            <th>Barrio</th>
+            <th class="text-nowrap">Registrado</th>
+            <th class="text-nowrap">Por</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for att, y, u in rows %}
+          <tr>
+            <td class="text-muted">{{ loop.index }}</td>
+            <td class="text-nowrap">{{ y.cedula }}</td>
+            <td class="fw-semibold">{{ y.full_name }}</td>
+            <td class="text-nowrap">{{ y.phone }}</td>
+            <td>{{ y.barrio.name if y.barrio else "" }}</td>
+            <td class="text-nowrap">{{ att.registered_at }}</td>
+            <td class="text-nowrap">{{ u.username }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
