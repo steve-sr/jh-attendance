@@ -30,3 +30,5 @@
 .btn{
   border-radius: 12px;
 }
+
+.mono-input { font-variant-numeric: tabular-nums; letter-spacing: .5px; }

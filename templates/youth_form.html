@@ -27,7 +27,9 @@
       <form method="post" class="needs-validation" novalidate>
         <div class="mb-3">
           <label class="form-label">Cédula</label>
-          <input class="form-control" name="cedula" placeholder="Ej: 1-234-567" required autofocus>
+          <input class="form-control mono-input" name="cedula" inputmode="numeric" autocomplete="off"
+            placeholder="Ej: 5-0000-0000" data-mask="cedula" data-strip-digits="true" minlength="8" maxlength="11"
+            required>
           <div class="form-text">Debe ser única. Si ya existe, el sistema te avisará.</div>
           <div class="invalid-feedback">Este campo es obligatorio.</div>
         </div>
@@ -40,7 +42,8 @@
 
         <div class="mb-3">
           <label class="form-label">Teléfono</label>
-          <input class="form-control" name="phone" placeholder="Ej: 8888-8888" required>
+          <input class="form-control mono-input" name="phone" inputmode="numeric" autocomplete="off"
+            placeholder="Ej: 8888-8888" data-mask="phone" data-strip-digits="true" minlength="8" maxlength="9" required>
           <div class="invalid-feedback">Este campo es obligatorio.</div>
         </div>
 
@@ -49,7 +52,7 @@
           <select class="form-select" name="barrio_id" required>
             <option value="" selected disabled>Seleccioná un barrio...</option>
             {% for b in barrios %}
-              <option value="{{ b.id }}">{{ b.name }}</option>
+            <option value="{{ b.id }}">{{ b.name }}</option>
             {% endfor %}
           </select>
           <div class="invalid-feedback">Seleccioná un barrio.</div>
@@ -65,17 +68,17 @@
 </div>
 
 <script>
-(() => {
-  const forms = document.querySelectorAll('.needs-validation')
-  Array.from(forms).forEach(form => {
-    form.addEventListener('submit', event => {
-      if (!form.checkValidity()) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
-      form.classList.add('was-validated')
-    }, false)
-  })
-})()
+  (() => {
+    const forms = document.querySelectorAll('.needs-validation')
+    Array.from(forms).forEach(form => {
+      form.addEventListener('submit', event => {
+        if (!form.checkValidity()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+        form.classList.add('was-validated')
+      }, false)
+    })
+  })()
 </script>
 {% endblock %}

@@ -11,6 +11,18 @@ from models import db, User, Youth, Barrio, Service, Attendance
 from helpers import role_required
 import traceback
 
+import re
+
+def only_digits(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+def validate_cedula(d: str) -> bool:
+    # Aceptamos 8 o 9 dígitos (por tus ejemplos). Ajustable.
+    return d.isdigit() and len(d) in (8, 9)
+
+def validate_phone(d: str) -> bool:
+    return d.isdigit() and len(d) == 8
+
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -100,10 +112,21 @@ def youth_new():
     barrios = Barrio.query.filter_by(is_active=True).order_by(Barrio.name.asc()).all()
 
     if request.method == "POST":
-        cedula = request.form["cedula"].strip()
+        cedula_raw = request.form["cedula"].strip()
         full_name = request.form["full_name"].strip()
-        phone = request.form["phone"].strip()
+        phone_raw = request.form["phone"].strip()
         barrio_id = int(request.form["barrio_id"])
+
+        cedula = only_digits(cedula_raw)
+        phone = only_digits(phone_raw)
+
+        if not validate_cedula(cedula):
+            flash("Cédula inválida. Debe tener 8 o 9 dígitos (sin letras).", "warning")
+            return redirect(url_for("youth_new"))
+
+        if not validate_phone(phone):
+            flash("Teléfono inválido. Debe tener 8 dígitos.", "warning")
+            return redirect(url_for("youth_new"))
 
         if Youth.query.get(cedula):
             flash("Ya existe un joven con esa cédula.", "warning")
@@ -126,7 +149,14 @@ def youth_edit(cedula):
 
     if request.method == "POST":
         y.full_name = request.form["full_name"].strip()
-        y.phone = request.form["phone"].strip()
+
+        phone = only_digits(request.form["phone"].strip())
+        if not validate_phone(phone):
+            flash("Teléfono inválido. Debe tener 8 dígitos.", "warning")
+            return redirect(url_for("youth_edit", cedula=cedula))
+
+        y.phone = phone
+
         y.barrio_id = int(request.form["barrio_id"])
         db.session.commit()
         flash("Joven actualizado", "success")
@@ -284,7 +314,12 @@ def attendance_register_active():
         flash("Primero seleccioná un servicio activo.", "warning")
         return redirect(url_for("select_service"))
 
-    cedula = request.form.get("cedula", "").strip()
+    cedula = only_digits(request.form.get("cedula", "").strip())
+
+    if not validate_cedula(cedula):
+        flash("Cédula inválida. Debe tener 8 o 9 dígitos.", "warning")
+        return redirect(url_for("attendance_active"))
+
     y = Youth.query.get(cedula)
     if not y:
         flash("No existe un joven con esa cédula. Regístralo primero.", "warning")

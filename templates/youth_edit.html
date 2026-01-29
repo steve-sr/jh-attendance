@@ -35,7 +35,10 @@
 
         <div class="mb-3">
           <label class="form-label">Teléfono</label>
-          <input class="form-control" name="phone" value="{{ y.phone }}" required>
+          <input class="form-control mono-input" name="phone" value="{{ y.phone }}" inputmode="numeric"
+            autocomplete="off" placeholder="Ej: 6181-2327" data-mask="phone" data-strip-digits="true" minlength="8"
+            maxlength="9" required>
+
           <div class="form-text">Ej: 8888-8888</div>
           <div class="invalid-feedback">Este campo es obligatorio.</div>
         </div>
@@ -44,9 +47,9 @@
           <label class="form-label">Barrio</label>
           <select class="form-select" name="barrio_id" required>
             {% for b in barrios %}
-              <option value="{{ b.id }}" {% if b.id == y.barrio_id %}selected{% endif %}>
-                {{ b.name }}
-              </option>
+            <option value="{{ b.id }}" {% if b.id==y.barrio_id %}selected{% endif %}>
+              {{ b.name }}
+            </option>
             {% endfor %}
           </select>
           <div class="invalid-feedback">Seleccioná un barrio.</div>
@@ -62,17 +65,17 @@
 </div>
 
 <script>
-(() => {
-  const forms = document.querySelectorAll('.needs-validation')
-  Array.from(forms).forEach(form => {
-    form.addEventListener('submit', event => {
-      if (!form.checkValidity()) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
-      form.classList.add('was-validated')
-    }, false)
-  })
-})()
+  (() => {
+    const forms = document.querySelectorAll('.needs-validation')
+    Array.from(forms).forEach(form => {
+      form.addEventListener('submit', event => {
+        if (!form.checkValidity()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+        form.classList.add('was-validated')
+      }, false)
+    })
+  })()
 </script>
 {% endblock %}
