@@ -49,6 +49,37 @@ def get_selected_service():
     return Service.query.filter_by(id=service_id, is_active=True).first()
 
 
+def _digits(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+@app.template_filter("fmt_phone")
+def fmt_phone(value):
+    d = _digits(value)
+    if len(d) == 8:
+        return f"{d[:4]}-{d[4:]}"
+    return value or ""
+
+@app.template_filter("fmt_cedula")
+def fmt_cedula(value):
+    d = _digits(value)
+    # si 9 dígitos: 5-0448-0768
+    if len(d) == 9:
+        return f"{d[0]}-{d[1:5]}-{d[5:]}"
+    # si 8 dígitos: 0448-0768
+    if len(d) == 8:
+        return f"{d[:4]}-{d[4:]}"
+    return value or ""
+
+@app.template_filter("wa_link")
+def wa_link(phone):
+    d = _digits(phone)
+    if len(d) == 8:
+        return f"https://wa.me/506{d}"  # Costa Rica
+    # si algún día guardás 506+numero, también funciona:
+    if len(d) in (11, 12, 13):  # ej 506xxxxxxxx
+        return f"https://wa.me/{d}"
+    return ""
+
 # --- CLI: init-db ---
 @app.cli.command("init-db")
 def init_db():
@@ -235,15 +266,30 @@ def admin_attendance_export(service_id):
 
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["cedula", "nombre", "contacto", "barrio"])
+    writer.writerow(["cedula", "nombre", "contacto", "barrio", "whatsapp"])
 
-    for att, y, u in rows:
-        writer.writerow([
-            y.cedula,
-            y.full_name,
-            y.phone,
-            y.barrio.name if y.barrio else ""
-        ])
+
+    import re
+def only_digits(s): 
+    return re.sub(r"\D", "", s or "")
+
+for att, y, u in rows:
+    phone_digits = only_digits(y.phone)
+    wa = f"https://wa.me/506{phone_digits}" if len(phone_digits) == 8 else ""
+
+    # formato “bonito” para el CSV (opcional)
+    phone_fmt = f"{phone_digits[:4]}-{phone_digits[4:]}" if len(phone_digits) == 8 else y.phone
+    ced = only_digits(y.cedula)
+    ced_fmt = f"{ced[0]}-{ced[1:5]}-{ced[5:]}" if len(ced) == 9 else (f"{ced[:4]}-{ced[4:]}" if len(ced) == 8 else y.cedula)
+
+    writer.writerow([
+        ced_fmt,
+        y.full_name,
+        phone_fmt,
+        y.barrio.name if y.barrio else "",
+        wa
+    ])
+
 
     csv_data = output.getvalue()
     output.close()

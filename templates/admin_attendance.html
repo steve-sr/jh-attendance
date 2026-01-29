@@ -31,7 +31,7 @@
             <th>#</th>
             <th class="text-nowrap">Cédula</th>
             <th>Nombre</th>
-            <th class="text-nowrap">Teléfono</th>
+            <th class="text-nowrap">Contacto</th>
             <th>Barrio</th>
             <th class="text-nowrap">Registrado</th>
             <th class="text-nowrap">Por</th>
@@ -41,9 +41,23 @@
           {% for att, y, u in rows %}
           <tr>
             <td class="text-muted">{{ loop.index }}</td>
-            <td class="text-nowrap">{{ y.cedula }}</td>
+            <td class="text-nowrap">{{ y.cedula|fmt_cedula }}</td>
             <td class="fw-semibold">{{ y.full_name }}</td>
-            <td class="text-nowrap">{{ y.phone }}</td>
+
+            <td class="text-nowrap">
+              <div class="d-flex align-items-center gap-2">
+                <span>{{ y.phone|fmt_phone }}</span>
+                {% set wa = y.phone|wa_link %}
+                {% if wa %}
+                  <a class="btn btn-sm btn-success" target="_blank" rel="noopener" href="{{ wa }}">
+                    WhatsApp
+                  </a>
+                {% else %}
+                  <span class="text-muted small">Sin tel.</span>
+                {% endif %}
+              </div>
+            </td>
+
             <td>{{ y.barrio.name if y.barrio else "" }}</td>
             <td class="text-nowrap">{{ att.registered_at }}</td>
             <td class="text-nowrap">{{ u.username }}</td>
