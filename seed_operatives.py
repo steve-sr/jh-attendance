@@ -2,11 +2,13 @@ from app import app
 from models import db, User
 
 OPERATIVOS = [
-    ("oper1", "Oper1234!"),
-    ("oper2", "Oper1234!"),
-    ("oper3", "Oper1234!"),
-    ("oper4", "Oper1234!"),
-    ("oper5", "Oper1234!"),
+    ("sara_salazar", "sara_salazar!"),
+    ("sofia_alvarez", "sofia_alvarez!"),
+    ("christopher_ordonoñez", "christopher_ordonoñez!"),
+    ("valery_alvarez", "valery_alvarez!"),
+    ("abi_vargas", "abi_vargas!"),
+    ("angelica_quintero", "angelica_quintero!"),
+    ("fernanda_fonseca", "fernanda_fonseca!"),
 ]
 
 with app.app_context():

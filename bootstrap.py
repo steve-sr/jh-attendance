@@ -13,7 +13,7 @@ def main():
         from models import db
         with app.app_context():
             db.create_all()
-        print("✅ DB tables ensured (create_all).", flush=True)
+        print("DB tables ensured (create_all).", flush=True)
     except Exception as e:
         print("❌ Error creating tables:", e, flush=True)
         return 1
@@ -37,7 +37,7 @@ def main():
             print("❌ seed_barrios.py failed.", flush=True)
             return code
 
-    print("✅ Bootstrap finished.", flush=True)
+    print("Bootstrap finished.", flush=True)
     return 0
 
 if __name__ == "__main__":
