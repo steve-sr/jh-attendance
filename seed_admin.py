@@ -5,6 +5,7 @@ ADMINISTRADORES = [
     ("john_espinoza", "john_espinoza!"),
     ("steve_rios", "steve_rios!"),
     ("jafet_alvarez", "jafet_alvarez!"),
+    ("luis_ortega", "luis_ortega!"),
 ]
 
 with app.app_context():
