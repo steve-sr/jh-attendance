@@ -11,6 +11,7 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.Enum("OPERATIVE", "ADMIN"), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    session_token = db.Column(db.String(64), nullable=True)
 
     def set_password(self, raw: str):
         self.password_hash = generate_password_hash(raw)

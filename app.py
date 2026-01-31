@@ -1,8 +1,10 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+from flask_login import logout_user
 import csv
 from io import StringIO
 import re
 import traceback
+import secrets
 
 from flask import (
     Flask,
@@ -72,6 +74,7 @@ def parse_birth_date(value: str):
 # -------------------------
 app = Flask(__name__)
 app.config.from_object(Config)
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=2)
 db.init_app(app)
 
 # -------------------------
@@ -143,6 +146,47 @@ def age_filter(birth_date):
         years -= 1
     return years
 
+from datetime import datetime, timedelta  # asegurate de tener timedelta importado
+from flask_login import logout_user
+from flask import session, flash, redirect, url_for
+
+@app.before_request
+def enforce_session_policies():
+    # Solo aplica si está logueado
+    if not current_user.is_authenticated:
+        return
+
+    now = datetime.utcnow()
+
+    # --- 1) Inactividad: 2 minutos ---
+    last = session.get("last_activity")
+    if last:
+        try:
+            last_dt = datetime.fromisoformat(last)
+            if (now - last_dt) > timedelta(minutes=2):
+                logout_user()
+                session.clear()
+                flash("Sesión cerrada por inactividad (2 minutos).", "warning")
+                return redirect(url_for("login"))
+        except Exception:
+            logout_user()
+            session.clear()
+            return redirect(url_for("login"))
+
+    # --- 2) Solo 1 sesión activa por usuario ---
+    current_token = session.get("session_token")
+    if not current_token or current_user.session_token != current_token:
+        logout_user()
+        session.clear()
+        flash("Tu sesión fue iniciada en otro dispositivo. Se cerró esta sesión.", "warning")
+        return redirect(url_for("login"))
+
+    # refrescar actividad
+    session["last_activity"] = now.isoformat()
+    session.permanent = True
+
+
+
 
 # -------------------------
 # CLI: init-db
@@ -173,8 +217,18 @@ def login():
 
         user = User.query.filter_by(username=username, is_active=True).first()
         if user and user.check_password(password):
+            # token nuevo -> invalida sesiones anteriores
+            token = secrets.token_urlsafe(32)
+            user.session_token = token
+            db.session.commit()
+
             login_user(user)
+            session["session_token"] = token
+            session["last_activity"] = datetime.utcnow().isoformat()
+            session.permanent = True
+
             return redirect(url_for("dashboard"))
+
 
         flash("Credenciales inválidas.", "danger")
 
@@ -184,9 +238,16 @@ def login():
 @app.get("/logout")
 @login_required
 def logout():
+    try:
+        current_user.session_token = None
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     logout_user()
-    session.pop("selected_service_id", None)
+    session.clear()
     return redirect(url_for("login"))
+
 
 
 # -------------------------
