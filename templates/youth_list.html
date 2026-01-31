@@ -47,9 +47,13 @@
           <th>Barrio</th>
           <th>Edad</th>
 
-
+          {% if current_user.role == "ADMIN" %}
+            <th>Total</th>
+            <th>Racha</th>
+          {% endif %}
 
           <th>Acciones</th>
+
         </tr>
       </thead>
 
@@ -60,12 +64,20 @@
         {% set att_count = row[2] if current_user.role == "ADMIN" and row|length > 2 else 0 %}
 
         <tr>
-          <td class="fw-semibold">
-            {{ y.full_name }}
+          <td class="fw-semibold">{{ y.full_name }}</td>
+
             {% if current_user.role == "ADMIN" %}
-            <span class="badge text-bg-warning ms-2">🔥 {{ att_count }}</span>
+              {% set streak = streaks.get(y.cedula, 0) %}
+              <td><span class="badge text-bg-light border">{{ att_count }}</span></td>
+              <td>
+                {% if streak > 0 %}
+                  <span class="badge text-bg-warning">🔥 {{ streak }}</span>
+                {% else %}
+                  <span class="text-muted">0</span>
+                {% endif %}
+              </td>
             {% endif %}
-          </td>
+
 
           <td>{{ y.cedula|fmt_cedula }}</td>
           <td>{{ y.phone|fmt_phone }}</td>

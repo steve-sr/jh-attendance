@@ -160,7 +160,7 @@ def age_filter(birth_date):
         years -= 1
     return years
 
-from datetime import datetime, timedelta  # asegurate de tener timedelta importado
+from datetime import datetime, timedelta
 from flask_login import logout_user
 from flask import session, flash, redirect, url_for
 
@@ -172,12 +172,12 @@ def enforce_session_policies():
 
     now = datetime.utcnow()
 
-    # --- 1) Inactividad: 5 minutos ---
+    # --- 1) Inactividad: 15 minutos ---
     last = session.get("last_activity")
     if last:
         try:
             last_dt = datetime.fromisoformat(last)
-            if (now - last_dt) > timedelta(minutes=5):
+            if (now - last_dt) > timedelta(minutes=15):
                 logout_user()
                 session.clear()
                 flash("Sesión cerrada por inactividad (5 minutos).", "warning")
@@ -319,8 +319,11 @@ def youth_list():
             conditions.append(Youth.phone.like(f"%{q_digits}%"))
         return query.filter(or_(*conditions))
 
-    # ADMIN: trae conteo 🔥
+    # -------------------------
+    # ADMIN: conteo normal + racha real
+    # -------------------------
     if current_user.role == "ADMIN":
+        # 1) Conteo normal (total de servicios distintos asistidos)
         subq = (
             db.session.query(
                 Attendance.youth_cedula.label("cedula"),
@@ -348,10 +351,60 @@ def youth_list():
             .all()
         )
 
-        total = query.count() if q else Youth.query.count()
-        return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total)
+        # 2) Racha real (consecutivos desde el servicio más reciente hacia atrás)
+        streaks = {}
 
-    # OPERATIVE: sin conteo 🔥
+        # servicios pasados (ya ocurridos) - ajustá el limit si querés
+        recent_services = (
+            Service.query
+            .filter(Service.starts_at <= datetime.now())
+            .order_by(Service.starts_at.desc())
+            .limit(200)
+            .all()
+        )
+        service_ids = [s.id for s in recent_services]  # newest -> oldest
+
+        if service_ids and youth_rows:
+            cedulas = [row[0].cedula for row in youth_rows]
+
+            pairs = (
+                db.session.query(Attendance.youth_cedula, Attendance.service_id)
+                .filter(Attendance.youth_cedula.in_(cedulas))
+                .filter(Attendance.service_id.in_(service_ids))
+                .all()
+            )
+
+            attended = {}
+            for c, sid in pairs:
+                attended.setdefault(c, set()).add(sid)
+
+            for c in cedulas:
+                s = 0
+                aset = attended.get(c, set())
+                for sid in service_ids:
+                    if sid in aset:
+                        s += 1
+                    else:
+                        break
+                streaks[c] = s
+        else:
+            # si no hay servicios aún
+            for row in youth_rows:
+                streaks[row[0].cedula] = 0
+
+        total = query.count() if q else Youth.query.count()
+
+        return render_template(
+            "youth_list.html",
+            youth_rows=youth_rows,
+            q=q,
+            total=total,
+            streaks=streaks
+        )
+
+    # -------------------------
+    # OPERATIVE: solo listado
+    # -------------------------
     query = (
         db.session.query(Youth, Barrio)
         .outerjoin(Barrio, Barrio.id == Youth.barrio_id)
@@ -490,7 +543,7 @@ def youth_delete(cedula):
         db.session.delete(y)
 
         db.session.commit()
-        flash("Joven eliminado (y asistencias asociadas) ✅", "success")
+        flash("Joven eliminado (y asistencias asociadas)", "success")
     except Exception:
         db.session.rollback()
         flash("No se pudo eliminar. Revisá logs.", "danger")
