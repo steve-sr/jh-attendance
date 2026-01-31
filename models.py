@@ -30,6 +30,7 @@ class Youth(db.Model):
     full_name = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
     barrio_id = db.Column(db.Integer, db.ForeignKey("barrios.id"), nullable=False)
+    birth_date = db.Column(db.Date, nullable=True)
 
     barrio = db.relationship("Barrio")
 

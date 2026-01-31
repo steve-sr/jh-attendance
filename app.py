@@ -1,11 +1,26 @@
-from datetime import datetime
+from datetime import datetime, date
 import csv
 from io import StringIO
 import re
 import traceback
 
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    Response,
+    session,
+)
+from flask_login import (
+    LoginManager,
+    login_user,
+    logout_user,
+    login_required,
+    current_user,
+)
 from sqlalchemy import text
 
 from config import Config
@@ -22,12 +37,34 @@ def digits_only(value: str) -> str:
 
 def validate_cedula(value: str) -> bool:
     d = digits_only(value)
-    return d.isdigit() and len(d) in (8, 9)
+    return d.isdigit() and len(d) in (8, 9)  # ajustable
 
 
 def validate_phone(value: str) -> bool:
     d = digits_only(value)
     return d.isdigit() and len(d) == 8
+
+
+def parse_birth_date(value: str):
+    """
+    Retorna:
+      - date() si es válida
+      - None si viene vacía
+      - "invalid" si no parsea
+      - "future" si es futura
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        bd = datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return "invalid"
+
+    if bd > date.today():
+        return "future"
+
+    return bd
 
 
 # -------------------------
@@ -170,9 +207,14 @@ def youth_new():
         full_name = request.form.get("full_name", "").strip()
         phone_raw = request.form.get("phone", "").strip()
         barrio_id = int(request.form.get("barrio_id"))
+        birth_date_str = request.form.get("birth_date", "").strip()
 
         cedula = digits_only(cedula_raw)
         phone = digits_only(phone_raw)
+
+        if not full_name:
+            flash("El nombre es obligatorio.", "warning")
+            return redirect(url_for("youth_new"))
 
         if not validate_cedula(cedula):
             flash("Cédula inválida. Debe tener 8 o 9 dígitos (sin letras).", "warning")
@@ -182,11 +224,29 @@ def youth_new():
             flash("Teléfono inválido. Debe tener 8 dígitos.", "warning")
             return redirect(url_for("youth_new"))
 
+        # Birth date (obligatoria en el form + backend)
+        bd = parse_birth_date(birth_date_str)
+        if bd is None:
+            flash("La fecha de nacimiento es obligatoria.", "warning")
+            return redirect(url_for("youth_new"))
+        if bd == "invalid":
+            flash("Fecha de nacimiento inválida.", "warning")
+            return redirect(url_for("youth_new"))
+        if bd == "future":
+            flash("La fecha de nacimiento no puede ser futura.", "warning")
+            return redirect(url_for("youth_new"))
+
         if Youth.query.get(cedula):
             flash("Ya existe un joven con esa cédula.", "warning")
             return redirect(url_for("youth_new"))
 
-        y = Youth(cedula=cedula, full_name=full_name, phone=phone, barrio_id=barrio_id)
+        y = Youth(
+            cedula=cedula,
+            full_name=full_name,
+            phone=phone,
+            barrio_id=barrio_id,
+            birth_date=bd,
+        )
         db.session.add(y)
         db.session.commit()
 
@@ -205,6 +265,9 @@ def youth_edit(cedula):
 
     if request.method == "POST":
         y.full_name = request.form.get("full_name", "").strip()
+        if not y.full_name:
+            flash("El nombre es obligatorio.", "warning")
+            return redirect(url_for("youth_edit", cedula=cedula))
 
         phone = digits_only(request.form.get("phone", "").strip())
         if not validate_phone(phone):
@@ -213,6 +276,21 @@ def youth_edit(cedula):
 
         y.phone = phone
         y.barrio_id = int(request.form.get("barrio_id"))
+
+        # Birth date (obligatoria)
+        birth_date_str = request.form.get("birth_date", "").strip()
+        bd = parse_birth_date(birth_date_str)
+        if bd is None:
+            flash("La fecha de nacimiento es obligatoria.", "warning")
+            return redirect(url_for("youth_edit", cedula=cedula))
+        if bd == "invalid":
+            flash("Fecha de nacimiento inválida.", "warning")
+            return redirect(url_for("youth_edit", cedula=cedula))
+        if bd == "future":
+            flash("La fecha de nacimiento no puede ser futura.", "warning")
+            return redirect(url_for("youth_edit", cedula=cedula))
+
+        y.birth_date = bd
 
         db.session.commit()
         flash("Joven actualizado", "success")
@@ -234,7 +312,7 @@ def admin_services():
         if action == "create":
             title = request.form.get("title", "").strip()
             date_str = request.form.get("service_date", "").strip()  # YYYY-MM-DD
-            time_str = request.form.get("start_time", "").strip()    # HH:MM
+            time_str = request.form.get("start_time", "").strip()  # HH:MM
 
             if not title or not date_str or not time_str:
                 flash("Complete título, fecha y hora.", "warning")
@@ -309,7 +387,11 @@ def admin_attendance_export(service_id):
         phone_digits = digits_only(y.phone)
         wa = f"https://wa.me/506{phone_digits}" if len(phone_digits) == 8 else ""
 
-        phone_fmt = f"{phone_digits[:4]}-{phone_digits[4:]}" if len(phone_digits) == 8 else (y.phone or "")
+        phone_fmt = (
+            f"{phone_digits[:4]}-{phone_digits[4:]}"
+            if len(phone_digits) == 8
+            else (y.phone or "")
+        )
 
         ced = digits_only(y.cedula)
         if len(ced) == 9:
@@ -441,7 +523,7 @@ def attendance_register_active():
 def handle_exception(e):
     print("🔥 ERROR:", repr(e))
     traceback.print_exc()
-    return "Error interno. Revisa logs en Render.", 500
+    return "Error interno. Revisa logs.", 500
 
 
 # -------------------------
