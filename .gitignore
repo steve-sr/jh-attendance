@@ -1,4 +1,7 @@
 .env
+seed_admin.py
+seed_operatives.py
+seed_users.py
 venv/
 __pycache__/
 *.pyc
