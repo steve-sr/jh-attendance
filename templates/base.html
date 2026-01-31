@@ -30,8 +30,10 @@
           <li class="nav-item"><a class="nav-link" href="/attendance/active">Asistencia</a></li>
 
           {% if current_user.role == "ADMIN" %}
-            <li class="nav-item"><a class="nav-link" href="/admin/services">Admin</a></li>
+            <li class="nav-item"><a class="nav-link" href="/admin/services">Servicios</a></li>
+            <li class="nav-item"><a class="nav-link" href="/admin/users">Usuarios</a></li>
           {% endif %}
+
 
           <li class="nav-item">
             <a class="btn btn-outline-light btn-sm ms-lg-2" href="/logout">Salir</a>

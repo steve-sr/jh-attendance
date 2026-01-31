@@ -453,6 +453,71 @@ def admin_services():
     services = Service.query.order_by(Service.starts_at.desc()).limit(200).all()
     return render_template("admin_services.html", services=services)
 
+@app.route("/admin/users", methods=["GET", "POST"])
+@login_required
+@role_required("ADMIN")
+def admin_users():
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        # ---- Crear usuario ----
+        if action == "create":
+            username = request.form.get("username", "").strip()
+            role = request.form.get("role", "").strip().upper()
+            password = request.form.get("password", "")
+
+            if not username or not password:
+                flash("Complete usuario y contraseña.", "warning")
+                return redirect(url_for("admin_users"))
+
+            if role not in ("ADMIN", "OPERATIVE"):
+                flash("Rol inválido.", "warning")
+                return redirect(url_for("admin_users"))
+
+            if User.query.filter_by(username=username).first():
+                flash("Ese usuario ya existe.", "warning")
+                return redirect(url_for("admin_users"))
+
+            u = User(username=username, role=role, is_active=True)
+            u.set_password(password)
+            db.session.add(u)
+            db.session.commit()
+            flash("Usuario creado ✅", "success")
+            return redirect(url_for("admin_users"))
+
+        # ---- Activar/Desactivar ----
+        if action == "toggle":
+            user_id = int(request.form.get("user_id"))
+            u = User.query.get_or_404(user_id)
+
+            # Evitar que te desactives a vos mismo
+            if u.id == current_user.id:
+                flash("No podés desactivarte a vos mismo.", "warning")
+                return redirect(url_for("admin_users"))
+
+            u.is_active = not u.is_active
+            db.session.commit()
+            flash("Estado actualizado ✅", "success")
+            return redirect(url_for("admin_users"))
+
+        # ---- Reset password ----
+        if action == "reset_password":
+            user_id = int(request.form.get("user_id"))
+            new_password = request.form.get("new_password", "")
+
+            if not new_password:
+                flash("Ingrese la nueva contraseña.", "warning")
+                return redirect(url_for("admin_users"))
+
+            u = User.query.get_or_404(user_id)
+            u.set_password(new_password)
+            db.session.commit()
+            flash("Contraseña actualizada ✅", "success")
+            return redirect(url_for("admin_users"))
+
+    users = User.query.order_by(User.role.desc(), User.username.asc()).all()
+    return render_template("admin_users.html", users=users)
+
 
 @app.get("/admin/attendance/<int:service_id>")
 @login_required
