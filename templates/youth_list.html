@@ -31,201 +31,200 @@
 
 <div class="card p-3 p-md-4">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <span class="badge badge-soft px-3 py-2">Total: {{ youth_rows|length }}</span>
+    <span class="badge badge-soft px-3 py-2">Total: {{ total }}</span>
   </div>
 
   {% if youth_rows|length == 0 %}
-  <p class="text-muted mb-0">No hay jóvenes registrados todavía.</p>
+    <p class="text-muted mb-0">No hay jóvenes registrados todavía.</p>
   {% else %}
-  <div class="table-responsive">
-    <table id="youthTable" class="table table-hover align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Cédula</th>
-          <th>Teléfono</th>
-          <th>Barrio</th>
-          <th>Edad</th>
 
-          {% if current_user.role == "ADMIN" %}
-            <th>Total</th>
-            <th>Racha</th>
-          {% endif %}
-
-          <th>Acciones</th>
-
-        </tr>
-      </thead>
-
-      <tbody id="youthTbody">
-        {% for row in youth_rows %}
-        {% set y = row[0] %}
-        {% set b = row[1] %}
-        {% set att_count = row[2] if current_user.role == "ADMIN" and row|length > 2 else 0 %}
-
-        <tr>
-          <td class="fw-semibold">{{ y.full_name }}</td>
+    <div class="table-responsive">
+      <table id="youthTable" class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="min-width: 220px;">Nombre</th>
+            <th style="white-space:nowrap;">Cédula</th>
+            <th style="white-space:nowrap;">Teléfono</th>
+            <th>Barrio</th>
+            <th style="white-space:nowrap;">Edad</th>
 
             {% if current_user.role == "ADMIN" %}
-              {% set streak = streaks.get(y.cedula, 0) %}
-              <td><span class="badge text-bg-light border">{{ att_count }}</span></td>
+              <th style="white-space:nowrap;">Total</th>
+              <th style="white-space:nowrap;">Racha</th>
+            {% endif %}
+
+            <th style="white-space:nowrap;">Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody id="youthTbody">
+          {% for row in youth_rows %}
+            {% set y = row[0] %}
+            {% set b = row[1] %}
+            {% set att_count = row[2] if current_user.role == "ADMIN" and row|length > 2 else 0 %}
+
+            <tr>
+              <td class="fw-semibold">{{ y.full_name }}</td>
+
+              <td>{{ y.cedula|fmt_cedula }}</td>
+              <td>{{ y.phone|fmt_phone }}</td>
+              <td>{{ b.name if b else "" }}</td>
+
               <td>
-                {% if streak > 0 %}
-                  <span class="badge text-bg-warning">🔥 {{ streak }}</span>
+                {% if y.birth_date %}
+                  <span class="badge text-bg-light border">{{ y.birth_date|age }} años</span>
                 {% else %}
-                  <span class="text-muted">0</span>
+                  <span class="text-muted">—</span>
                 {% endif %}
               </td>
-            {% endif %}
 
+              {% if current_user.role == "ADMIN" %}
+                {% set streak = streaks.get(y.cedula, 0) if streaks is defined else 0 %}
+                <td>
+                  <span class="badge text-bg-light border">{{ att_count }}</span>
+                </td>
+                <td>
+                  {% if streak > 0 %}
+                    <span class="badge text-bg-warning">🔥 {{ streak }}</span>
+                  {% else %}
+                    <span class="text-muted">0</span>
+                  {% endif %}
+                </td>
+              {% endif %}
 
-          <td>{{ y.cedula|fmt_cedula }}</td>
-          <td>{{ y.phone|fmt_phone }}</td>
-          <td>{{ b.name if b else "" }}</td>
-          <td>
-            {% if y.birth_date %}
-            <span class="badge text-bg-light border">{{ y.birth_date|age }} años</span>
-            {% else %}
-            <span class="text-muted">—</span>
-            {% endif %}
-          </td>
+              <td>
+                <div class="d-flex flex-wrap gap-2">
+                  <a class="btn btn-outline-primary btn-sm" href="/youth/{{ y.cedula }}/edit">Editar</a>
 
+                  {% if is_root_user() %}
+                    <button type="button" class="btn btn-outline-danger btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#deleteYouthModal"
+                      data-cedula="{{ y.cedula }}"
+                      data-name="{{ y.full_name }}">
+                      Eliminar
+                    </button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
 
-
-
-
-          <td>
-            <a class="btn btn-outline-primary btn-sm" href="/youth/{{y.cedula}}/edit">Editar</a>
-            {% if is_root_user() %}
-            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal"
-              data-bs-target="#deleteYouthModal" data-cedula="{{ y.cedula }}" data-name="{{ y.full_name }}">
-              Eliminar
-            </button>
-            {% endif %}
-
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-
-    </table>
-  </div>
-
-  {% if is_root_user() %}
-  <div class="modal fade" id="deleteYouthModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Confirmar eliminación</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-
-        <div class="modal-body">
-          <p class="mb-2">
-            Vas a eliminar a:
-            <b id="delName">—</b>
-          </p>
-          <div class="alert alert-danger mb-0">
-            <b>Esto eliminará también TODAS las asistencias</b> asociadas a este joven.
-            Esta acción <b>no se puede deshacer</b>.
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-            Cancelar
-          </button>
-
-          <form id="delForm" method="post" action="">
-            <button type="submit" class="btn btn-danger">
-              Sí, eliminar
-            </button>
-          </form>
-        </div>
-      </div>
+      </table>
     </div>
-  </div>
-
-  <script>
-    (function () {
-      const modalEl = document.getElementById("deleteYouthModal");
-      if (!modalEl) return;
-
-      modalEl.addEventListener("show.bs.modal", function (event) {
-        const btn = event.relatedTarget;
-        const cedula = btn.getAttribute("data-cedula");
-        const name = btn.getAttribute("data-name");
-
-        // actualizar texto
-        document.getElementById("delName").textContent = name || "—";
-
-        // set action del form
-        const form = document.getElementById("delForm");
-        form.action = `/youth/${cedula}/delete`;
-      });
-    })();
-  </script>
-  {% endif %}
-
 
   {% endif %}
 </div>
 
+{# -------------------------
+   Modal eliminar (solo ROOT)
+-------------------------- #}
+{% if is_root_user() %}
+<div class="modal fade" id="deleteYouthModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar eliminación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-2">
+          Vas a eliminar a:
+          <b id="delName">—</b>
+        </p>
+        <div class="alert alert-danger mb-0">
+          <b>Esto eliminará también TODAS las asistencias</b> asociadas a este joven.
+          Esta acción <b>no se puede deshacer</b>.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancelar
+        </button>
+
+        <form id="delForm" method="post" action="">
+          <button type="submit" class="btn btn-danger">
+            Sí, eliminar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  (function () {
-    const input = document.getElementById("liveSearch");
-    const clearBtn = document.getElementById("clearSearch");
-    const tbody = document.getElementById("youthTbody");
-    const visibleCountEl = document.getElementById("visibleCount");
-    const totalCountEl = document.getElementById("totalCount");
+(function () {
+  const modalEl = document.getElementById("deleteYouthModal");
+  if (!modalEl) return;
 
-    if (!input || !tbody) return;
+  modalEl.addEventListener("show.bs.modal", function (event) {
+    const btn = event.relatedTarget;
+    const cedula = btn.getAttribute("data-cedula");
+    const name = btn.getAttribute("data-name");
 
-    const rows = Array.from(tbody.querySelectorAll("tr"));
-    totalCountEl.textContent = rows.length;
-
-    function normalize(str) {
-      return (str || "")
-        .toString()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")  // quita acentos
-        .trim();
-    }
-
-    function filter() {
-      const q = normalize(input.value);
-      let visible = 0;
-
-      rows.forEach(tr => {
-        // Busca en todo el texto visible de la fila
-        const text = normalize(tr.innerText).replace(/-/g, "");
-        const q2 = normalize(input.value).replace(/-/g, "");
-        const show = !q2 || text.includes(q2);
-        tr.style.display = show ? "" : "none";
-        if (show) visible++;
-      });
-
-      visibleCountEl.textContent = visible;
-    }
-
-    // Debounce para no filtrar “a cada tecla” demasiado
-    let t = null;
-    input.addEventListener("input", () => {
-      clearTimeout(t);
-      t = setTimeout(filter, 80);
-    });
-
-    clearBtn?.addEventListener("click", () => {
-      input.value = "";
-      input.focus();
-      filter();
-    });
-
-    // Inicial
-    visibleCountEl.textContent = rows.length;
-  })();
+    document.getElementById("delName").textContent = name || "—";
+    document.getElementById("delForm").action = `/youth/${cedula}/delete`;
+  });
+})();
 </script>
+{% endif %}
 
+{# -------------------------
+   Búsqueda en vivo
+-------------------------- #}
+<script>
+(function () {
+  const input = document.getElementById("liveSearch");
+  const clearBtn = document.getElementById("clearSearch");
+  const tbody = document.getElementById("youthTbody");
+  const visibleCountEl = document.getElementById("visibleCount");
+  const totalCountEl = document.getElementById("totalCount");
 
+  if (!input || !tbody) return;
+
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  totalCountEl.textContent = rows.length;
+
+  function normalize(str) {
+    return (str || "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  }
+
+  function filter() {
+    const qRaw = normalize(input.value).replace(/-/g, "");
+    let visible = 0;
+
+    rows.forEach(tr => {
+      const text = normalize(tr.innerText).replace(/-/g, "");
+      const show = !qRaw || text.includes(qRaw);
+      tr.style.display = show ? "" : "none";
+      if (show) visible++;
+    });
+
+    visibleCountEl.textContent = visible;
+  }
+
+  let t = null;
+  input.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(filter, 80);
+  });
+
+  clearBtn?.addEventListener("click", () => {
+    input.value = "";
+    input.focus();
+    filter();
+  });
+
+  // Inicial
+  visibleCountEl.textContent = rows.length;
+})();
+</script>
 {% endblock %}
