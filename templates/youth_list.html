@@ -13,8 +13,7 @@
 <div class="row g-2 align-items-center mb-3">
   <div class="col-12 col-md-7">
     <input id="liveSearch" class="form-control" type="text"
-      placeholder="Buscar en vivo por nombre, cédula, teléfono, barrio..."
-      autocomplete="off">
+      placeholder="Buscar en vivo por nombre, cédula, teléfono, barrio..." autocomplete="off">
   </div>
 
   <div class="col-12 col-md-auto">
@@ -48,7 +47,7 @@
           <th>Barrio</th>
           <th>Edad</th>
 
-          
+
 
           <th>Acciones</th>
         </tr>
@@ -73,18 +72,25 @@
           <td>{{ b.name if b else "" }}</td>
           <td>
             {% if y.birth_date %}
-              <span class="badge text-bg-light border">{{ y.birth_date|age }} años</span>
+            <span class="badge text-bg-light border">{{ y.birth_date|age }} años</span>
             {% else %}
-              <span class="text-muted">—</span>
+            <span class="text-muted">—</span>
             {% endif %}
           </td>
 
 
 
-          
+
 
           <td>
             <a class="btn btn-outline-primary btn-sm" href="/youth/{{y.cedula}}/edit">Editar</a>
+            {% if is_root_user() %}
+            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal"
+              data-bs-target="#deleteYouthModal" data-cedula="{{ y.cedula }}" data-name="{{ y.full_name }}">
+              Eliminar
+            </button>
+            {% endif %}
+
           </td>
         </tr>
         {% endfor %}
@@ -92,63 +98,121 @@
 
     </table>
   </div>
+
+  {% if is_root_user() %}
+  <div class="modal fade" id="deleteYouthModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirmar eliminación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <p class="mb-2">
+            Vas a eliminar a:
+            <b id="delName">—</b>
+          </p>
+          <div class="alert alert-danger mb-0">
+            <b>Esto eliminará también TODAS las asistencias</b> asociadas a este joven.
+            Esta acción <b>no se puede deshacer</b>.
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            Cancelar
+          </button>
+
+          <form id="delForm" method="post" action="">
+            <button type="submit" class="btn btn-danger">
+              Sí, eliminar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const modalEl = document.getElementById("deleteYouthModal");
+      if (!modalEl) return;
+
+      modalEl.addEventListener("show.bs.modal", function (event) {
+        const btn = event.relatedTarget;
+        const cedula = btn.getAttribute("data-cedula");
+        const name = btn.getAttribute("data-name");
+
+        // actualizar texto
+        document.getElementById("delName").textContent = name || "—";
+
+        // set action del form
+        const form = document.getElementById("delForm");
+        form.action = `/youth/${cedula}/delete`;
+      });
+    })();
+  </script>
+  {% endif %}
+
+
   {% endif %}
 </div>
 
 <script>
-(function () {
-  const input = document.getElementById("liveSearch");
-  const clearBtn = document.getElementById("clearSearch");
-  const tbody = document.getElementById("youthTbody");
-  const visibleCountEl = document.getElementById("visibleCount");
-  const totalCountEl = document.getElementById("totalCount");
+  (function () {
+    const input = document.getElementById("liveSearch");
+    const clearBtn = document.getElementById("clearSearch");
+    const tbody = document.getElementById("youthTbody");
+    const visibleCountEl = document.getElementById("visibleCount");
+    const totalCountEl = document.getElementById("totalCount");
 
-  if (!input || !tbody) return;
+    if (!input || !tbody) return;
 
-  const rows = Array.from(tbody.querySelectorAll("tr"));
-  totalCountEl.textContent = rows.length;
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+    totalCountEl.textContent = rows.length;
 
-  function normalize(str) {
-    return (str || "")
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")  // quita acentos
-      .trim();
-  }
+    function normalize(str) {
+      return (str || "")
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")  // quita acentos
+        .trim();
+    }
 
-  function filter() {
-    const q = normalize(input.value);
-    let visible = 0;
+    function filter() {
+      const q = normalize(input.value);
+      let visible = 0;
 
-    rows.forEach(tr => {
-      // Busca en todo el texto visible de la fila
-      const text = normalize(tr.innerText).replace(/-/g, "");
-      const q2 = normalize(input.value).replace(/-/g, "");
-      const show = !q2 || text.includes(q2);
-      tr.style.display = show ? "" : "none";
-      if (show) visible++;
+      rows.forEach(tr => {
+        // Busca en todo el texto visible de la fila
+        const text = normalize(tr.innerText).replace(/-/g, "");
+        const q2 = normalize(input.value).replace(/-/g, "");
+        const show = !q2 || text.includes(q2);
+        tr.style.display = show ? "" : "none";
+        if (show) visible++;
+      });
+
+      visibleCountEl.textContent = visible;
+    }
+
+    // Debounce para no filtrar “a cada tecla” demasiado
+    let t = null;
+    input.addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(filter, 80);
     });
 
-    visibleCountEl.textContent = visible;
-  }
+    clearBtn?.addEventListener("click", () => {
+      input.value = "";
+      input.focus();
+      filter();
+    });
 
-  // Debounce para no filtrar “a cada tecla” demasiado
-  let t = null;
-  input.addEventListener("input", () => {
-    clearTimeout(t);
-    t = setTimeout(filter, 80);
-  });
-
-  clearBtn?.addEventListener("click", () => {
-    input.value = "";
-    input.focus();
-    filter();
-  });
-
-  // Inicial
-  visibleCountEl.textContent = rows.length;
-})();
+    // Inicial
+    visibleCountEl.textContent = rows.length;
+  })();
 </script>
 
 

@@ -107,6 +107,16 @@ def get_selected_service():
         return None
     return Service.query.filter_by(id=service_id, is_active=True).first()
 
+def is_root_user() -> bool:
+    if not current_user.is_authenticated:
+        return False
+    root_username = os.getenv("ROOT_ADMIN_USER", "root").strip()
+    return current_user.username == root_username
+
+@app.context_processor
+def inject_root_flag():
+    return {"is_root_user": is_root_user}
+
 
 # -------------------------
 # Template filters (format + WhatsApp)
@@ -162,15 +172,15 @@ def enforce_session_policies():
 
     now = datetime.utcnow()
 
-    # --- 1) Inactividad: 2 minutos ---
+    # --- 1) Inactividad: 5 minutos ---
     last = session.get("last_activity")
     if last:
         try:
             last_dt = datetime.fromisoformat(last)
-            if (now - last_dt) > timedelta(minutes=2):
+            if (now - last_dt) > timedelta(minutes=5):
                 logout_user()
                 session.clear()
-                flash("Sesión cerrada por inactividad (2 minutos).", "warning")
+                flash("Sesión cerrada por inactividad (5 minutos).", "warning")
                 return redirect(url_for("login"))
         except Exception:
             logout_user()
@@ -460,6 +470,32 @@ def youth_edit(cedula):
         return redirect(url_for("youth_list"))
 
     return render_template("youth_edit.html", y=y, barrios=barrios)
+
+
+@app.post("/youth/<cedula>/delete")
+@login_required
+@role_required("ADMIN")  # root es ADMIN, pero además validamos root por username
+def youth_delete(cedula):
+    if not is_root_user():
+        flash("No tenés permisos para eliminar jóvenes (solo ROOT).", "danger")
+        return redirect(url_for("youth_list"))
+
+    y = Youth.query.get_or_404(cedula)
+
+    try:
+        # 1) borrar asistencias del joven
+        Attendance.query.filter_by(youth_cedula=cedula).delete(synchronize_session=False)
+
+        # 2) borrar joven
+        db.session.delete(y)
+
+        db.session.commit()
+        flash("Joven eliminado (y asistencias asociadas) ✅", "success")
+    except Exception:
+        db.session.rollback()
+        flash("No se pudo eliminar. Revisá logs.", "danger")
+
+    return redirect(url_for("youth_list"))
 
 
 # -------------------------
