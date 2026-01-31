@@ -48,9 +48,7 @@
           <th>Barrio</th>
           <th>Edad</th>
 
-          {% if current_user.role == "ADMIN" %}
-          <th>🔥</th>
-          {% endif %}
+          
 
           <th>Acciones</th>
         </tr>
@@ -74,15 +72,16 @@
           <td>{{ y.phone|fmt_phone }}</td>
           <td>{{ b.name if b else "" }}</td>
           <td>
-            {# tu edad la calculás como ya la tenés #}
-            {{ y.birth_date }}
+            {% if y.birth_date %}
+              <span class="badge text-bg-light border">{{ y.birth_date|age }} años</span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
           </td>
 
-          {% if current_user.role == "ADMIN" %}
-          <td>
-            <span class="badge text-bg-warning">🔥 {{ att_count }}</span>
-          </td>
-          {% endif %}
+
+
+          
 
           <td>
             <a class="btn btn-outline-primary btn-sm" href="/youth/{{y.cedula}}/edit">Editar</a>
