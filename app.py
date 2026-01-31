@@ -8,6 +8,7 @@ import secrets
 import os
 import click
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text, func, distinct
 
 from flask import (
     Flask,
@@ -290,18 +291,72 @@ def logout():
 # -------------------------
 # YOUTH: LIST / CREATE / EDIT
 # -------------------------
+from sqlalchemy import func, distinct, or_
+
 @app.get("/youth")
 @login_required
 @role_required("OPERATIVE", "ADMIN")
 def youth_list():
-    youth_rows = (
+    q = (request.args.get("q") or "").strip()
+    q_digits = digits_only(q)
+
+    def apply_search(query):
+        if not q:
+            return query
+        conditions = [Youth.full_name.ilike(f"%{q}%")]
+        if q_digits:
+            conditions.append(Youth.cedula.like(f"%{q_digits}%"))
+            conditions.append(Youth.phone.like(f"%{q_digits}%"))
+        return query.filter(or_(*conditions))
+
+    # ADMIN: trae conteo 🔥
+    if current_user.role == "ADMIN":
+        subq = (
+            db.session.query(
+                Attendance.youth_cedula.label("cedula"),
+                func.count(distinct(Attendance.service_id)).label("att_count"),
+            )
+            .group_by(Attendance.youth_cedula)
+            .subquery()
+        )
+
+        query = (
+            db.session.query(
+                Youth,
+                Barrio,
+                func.coalesce(subq.c.att_count, 0).label("att_count"),
+            )
+            .outerjoin(Barrio, Barrio.id == Youth.barrio_id)
+            .outerjoin(subq, subq.c.cedula == Youth.cedula)
+        )
+
+        query = apply_search(query)
+
+        youth_rows = (
+            query.order_by(Youth.full_name.asc())
+            .limit(500)
+            .all()
+        )
+
+        total = query.count() if q else Youth.query.count()
+        return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total)
+
+    # OPERATIVE: sin conteo 🔥
+    query = (
         db.session.query(Youth, Barrio)
         .outerjoin(Barrio, Barrio.id == Youth.barrio_id)
-        .order_by(Youth.full_name.asc())
+    )
+
+    query = apply_search(query)
+
+    youth_rows = (
+        query.order_by(Youth.full_name.asc())
         .limit(500)
         .all()
     )
-    return render_template("youth_list.html", youth_rows=youth_rows)
+
+    total = query.count() if q else Youth.query.count()
+    return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total)
 
 
 @app.route("/youth/new", methods=["GET", "POST"])
@@ -482,7 +537,7 @@ def admin_users():
             u.set_password(password)
             db.session.add(u)
             db.session.commit()
-            flash("Usuario creado ✅", "success")
+            flash("Usuario creado", "success")
             return redirect(url_for("admin_users"))
 
         # ---- Activar/Desactivar ----
@@ -497,7 +552,7 @@ def admin_users():
 
             u.is_active = not u.is_active
             db.session.commit()
-            flash("Estado actualizado ✅", "success")
+            flash("Estado actualizado", "success")
             return redirect(url_for("admin_users"))
 
         # ---- Reset password ----
@@ -512,7 +567,7 @@ def admin_users():
             u = User.query.get_or_404(user_id)
             u.set_password(new_password)
             db.session.commit()
-            flash("Contraseña actualizada ✅", "success")
+            flash("Contraseña actualizada", "success")
             return redirect(url_for("admin_users"))
 
     users = User.query.order_by(User.role.desc(), User.username.asc()).all()
