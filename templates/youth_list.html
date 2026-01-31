@@ -26,6 +26,7 @@
             <th class="text-nowrap">Cédula</th>
             <th class="text-nowrap">Teléfono</th>
             <th>Barrio</th>
+            <th>Edad</th>
             <th class="text-end">Acciones</th>
           </tr>
         </thead>
@@ -36,6 +37,7 @@
               <td class="text-nowrap">{{ y.cedula }}</td>
               <td class="text-nowrap">{{ y.phone }}</td>
               <td>{{ b.name if b else "" }}</td>
+              <td class="text-end">{{ y.birth_date|age }}</td>
               <td class="text-end">
                 <a class="btn btn-sm btn-outline-primary" href="/youth/{{ y.cedula }}/edit">Editar</a>
               </td>

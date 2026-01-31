@@ -133,6 +133,16 @@ def wa_link(phone):
         return f"https://wa.me/{d}"
     return ""
 
+@app.template_filter("age")
+def age_filter(birth_date):
+    if not birth_date:
+        return ""
+    today = date.today()
+    years = today.year - birth_date.year
+    if (today.month, today.day) < (birth_date.month, birth_date.day):
+        years -= 1
+    return years
+
 
 # -------------------------
 # CLI: init-db
