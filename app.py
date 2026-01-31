@@ -5,6 +5,9 @@ from io import StringIO
 import re
 import traceback
 import secrets
+import os
+import click
+from sqlalchemy.exc import IntegrityError
 
 from flask import (
     Flask,
@@ -185,8 +188,42 @@ def enforce_session_policies():
     session["last_activity"] = now.isoformat()
     session.permanent = True
 
+@app.cli.command("bootstrap-root")
+def bootstrap_root():
+    """
+    Crea/actualiza un super admin desde variables de entorno:
+      ROOT_ADMIN_USER
+      ROOT_ADMIN_PASS
+      ROOT_ADMIN_ROLE (opcional)
+    """
+    username = os.getenv("ROOT_ADMIN_USER", "root").strip()
+    password = os.getenv("ROOT_ADMIN_PASS", "").strip()
+    role = os.getenv("ROOT_ADMIN_ROLE", "ADMIN").strip().upper()
 
+    if not password:
+        raise click.ClickException("Falta ROOT_ADMIN_PASS en variables de entorno.")
 
+    if role not in ("ADMIN", "OPERATIVE"):
+        raise click.ClickException("ROOT_ADMIN_ROLE debe ser ADMIN u OPERATIVE (recomendado ADMIN).")
+
+    with app.app_context():
+        u = User.query.filter_by(username=username).first()
+        if not u:
+            u = User(username=username, role=role, is_active=True)
+            u.set_password(password)
+            db.session.add(u)
+        else:
+            u.role = role
+            u.is_active = True
+            u.set_password(password)
+
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            raise click.ClickException("No se pudo crear/actualizar root (revisa si el username ya existe con otra config).")
+
+        print(f"✅ Root listo: {username} ({role})")
 
 # -------------------------
 # CLI: init-db
