@@ -23,24 +23,47 @@
     </button>
 
     <div class="collapse navbar-collapse" id="navJH">
-      <ul class="navbar-nav ms-auto gap-1">
+      <ul class="navbar-nav ms-auto gap-1 align-items-lg-center">
 
         {% if current_user.is_authenticated %}
+
+          <!-- PERSONAS -->
           <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
           <li class="nav-item"><a class="nav-link" href="/youth">Jóvenes</a></li>
           <li class="nav-item"><a class="nav-link" href="/attendance/active">Asistencia</a></li>
 
-          {# Servicios: ADMIN y ROOT #}
+          <!-- Separador -->
+          <li class="nav-item d-none d-lg-flex align-items-center px-1">
+            <span class="navbar-text text-white-50">|</span>
+          </li>
+          <li class="nav-item d-lg-none"><hr class="dropdown-divider bg-secondary"></li>
+
+          <!-- ADMIN / ROOT -->
           {% if current_user.role in ["ADMIN", "ROOT"] %}
-            <li class="nav-item">| <a class="nav-link" href="/admin/services">Servicios</a></li>
+            <li class="nav-item">
+              <a class="nav-link" href="/admin/services">Servicios</a>
+            </li>
+
+            <!-- Separador -->
+            <li class="nav-item d-none d-lg-flex align-items-center px-1">
+              <span class="navbar-text text-white-50">|</span>
+            </li>
+            <li class="nav-item d-lg-none"><hr class="dropdown-divider bg-secondary"></li>
           {% endif %}
 
-          {# Usuarios + Barrios: SOLO ROOT #}
+          <!-- ROOT ONLY -->
           {% if is_root_user() %}
-            <li class="nav-item">| <a class="nav-link" href="/admin/users">Usuarios</a></li>
+            <li class="nav-item"><a class="nav-link" href="/admin/users">Usuarios</a></li>
             <li class="nav-item"><a class="nav-link" href="/admin/barrios">Barrios</a></li>
+
+            <!-- Separador -->
+            <li class="nav-item d-none d-lg-flex align-items-center px-1">
+              <span class="navbar-text text-white-50">|</span>
+            </li>
+            <li class="nav-item d-lg-none"><hr class="dropdown-divider bg-secondary"></li>
           {% endif %}
 
+          <!-- SALIR -->
           <li class="nav-item">
             <a class="btn btn-outline-light btn-sm ms-lg-2" href="/logout">Salir</a>
           </li>
