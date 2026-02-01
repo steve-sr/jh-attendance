@@ -2,6 +2,8 @@
 {% block title %}Usuarios - Admin{% endblock %}
 
 {% block content %}
+{% set system_username = (config.get('SYSTEM_USER') if config and config.get('SYSTEM_USER') else 'system') %}
+
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div>
     <h3 class="fw-bold mb-0">Usuarios</h3>
@@ -74,6 +76,7 @@
                   <span class="badge bg-secondary">Inactivo</span>
                 {% endif %}
               </td>
+
               <td class="text-end">
                 <div class="d-flex flex-wrap justify-content-end gap-2">
 
@@ -81,10 +84,15 @@
                   <form method="post" style="display:inline">
                     <input type="hidden" name="action" value="toggle">
                     <input type="hidden" name="user_id" value="{{ u.id }}">
-                    <button class="btn btn-sm btn-outline-secondary" type="submit">
+
+                    <button class="btn btn-sm btn-outline-secondary" type="submit"
+                      {% if u.id == current_user.id %}disabled{% endif %}>
                       {% if u.is_active %}Desactivar{% else %}Activar{% endif %}
                     </button>
+                  </form>
 
+                  <!-- Delete (solo si NO es el propio usuario y NO es system) -->
+                  {% if u.id != current_user.id and u.username != system_username %}
                     <button
                       type="button"
                       class="btn btn-outline-danger btn-sm"
@@ -95,8 +103,7 @@
                     >
                       Eliminar
                     </button>
-
-                  </form>
+                  {% endif %}
 
                   <!-- Reset pass -->
                   <form method="post" class="d-flex gap-2" style="max-width: 260px;">
@@ -181,12 +188,9 @@
     const username = btn.getAttribute("data-username");
 
     document.getElementById("delUsername").textContent = username || "—";
-
-    const form = document.getElementById("delUserForm");
-    form.action = `/admin/users/${userId}/delete`;
+    document.getElementById("delUserForm").action = `/admin/users/${userId}/delete`;
   });
 })();
 </script>
-
 
 {% endblock %}

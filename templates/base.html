@@ -11,6 +11,7 @@
   <!-- Tu CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
+
 <body class="bg-soft">
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
@@ -23,17 +24,20 @@
 
     <div class="collapse navbar-collapse" id="navJH">
       <ul class="navbar-nav ms-auto gap-1">
+
         {% if current_user.is_authenticated %}
           <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
           <li class="nav-item"><a class="nav-link" href="/youth">Jóvenes</a></li>
           <li class="nav-item"><a class="nav-link" href="/services/select">Servicios activos</a></li>
           <li class="nav-item"><a class="nav-link" href="/attendance/active">Asistencia</a></li>
 
+          {# Servicios: ADMIN y ROOT #}
           {% if current_user.role in ["ADMIN", "ROOT"] %}
-            <li class="nav-item"><a class="nav-link" href="/admin/services">Servicios (Admin)</a></li>
+            <li class="nav-item"><a class="nav-link" href="/admin/services">Servicios</a></li>
           {% endif %}
 
-          {% if current_user.role == "ROOT" %}
+          {# Usuarios + Barrios: SOLO ROOT #}
+          {% if is_root_user() %}
             <li class="nav-item"><a class="nav-link" href="/admin/users">Usuarios</a></li>
             <li class="nav-item"><a class="nav-link" href="/admin/barrios">Barrios</a></li>
           {% endif %}
@@ -41,23 +45,24 @@
           <li class="nav-item">
             <a class="btn btn-outline-light btn-sm ms-lg-2" href="/logout">Salir</a>
           </li>
-        {% endif %}
 
+        {% else %}
           <li class="nav-item">
             <a class="btn btn-outline-light btn-sm" href="/login">Login</a>
           </li>
         {% endif %}
+
       </ul>
     </div>
   </div>
 </nav>
 
-
 <main class="container my-4">
+
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-3">
-        {% for c,m in messages %}
+        {% for c, m in messages %}
           <div class="alert alert-{{ 'success' if c=='success' else 'warning' if c in ['warning','info'] else 'danger' if c=='danger' else 'secondary' }} alert-dismissible fade show" role="alert">
             {{ m }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -71,6 +76,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
 function digitsOnly(v) { return (v || "").replace(/\D/g, ""); }
 
@@ -80,18 +86,14 @@ function formatPhone(d) {
   return d.slice(0,4) + "-" + d.slice(4);
 }
 
-// Cédula:
-// - si llega a 9 dígitos: 1-####-####
-// - si llega a 8 dígitos: ####-####
 function formatCedula(d) {
   d = digitsOnly(d).slice(0, 9);
 
-  if (d.length <= 8) { // formato 4-4 (para 8 dígitos o mientras va escribiendo)
+  if (d.length <= 8) {
     if (d.length <= 4) return d;
     return d.slice(0,4) + "-" + d.slice(4);
   }
 
-  // 9 dígitos: 1-####-####
   if (d.length <= 1) return d;
   if (d.length <= 5) return d.slice(0,1) + "-" + d.slice(1);
   return d.slice(0,1) + "-" + d.slice(1,5) + "-" + d.slice(5);
@@ -107,7 +109,6 @@ function attachMask(selector, formatter, maxDigits) {
   });
 }
 
-// Al enviar: convertir a solo dígitos para que la BD siempre reciba limpio
 function attachSubmitStrip(formSelector) {
   document.querySelectorAll(formSelector).forEach(form => {
     form.addEventListener("submit", () => {
