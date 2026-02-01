@@ -28,17 +28,16 @@
         {% if current_user.is_authenticated %}
           <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
           <li class="nav-item"><a class="nav-link" href="/youth">Jóvenes</a></li>
-          <li class="nav-item"><a class="nav-link" href="/services/select">Servicios activos</a></li>
           <li class="nav-item"><a class="nav-link" href="/attendance/active">Asistencia</a></li>
 
           {# Servicios: ADMIN y ROOT #}
           {% if current_user.role in ["ADMIN", "ROOT"] %}
-            <li class="nav-item"><a class="nav-link" href="/admin/services">Servicios</a></li>
+            <li class="nav-item">| <a class="nav-link" href="/admin/services">Servicios</a></li>
           {% endif %}
 
           {# Usuarios + Barrios: SOLO ROOT #}
           {% if is_root_user() %}
-            <li class="nav-item"><a class="nav-link" href="/admin/users">Usuarios</a></li>
+            <li class="nav-item">| <a class="nav-link" href="/admin/users">Usuarios</a></li>
             <li class="nav-item"><a class="nav-link" href="/admin/barrios">Barrios</a></li>
           {% endif %}
 
