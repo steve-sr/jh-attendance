@@ -48,10 +48,11 @@
             <th>Barrio</th>
             <th style="white-space:nowrap;">Edad</th>
 
-            {% if current_user.role == "ADMIN" %}
-              <th style="white-space:nowrap;">Total</th>
-              <th style="white-space:nowrap;">Racha</th>
+            {% if current_user.role in ["ADMIN", "ROOT"] %}
+              <th>Total</th>
+              <th>Racha</th>
             {% endif %}
+
 
             <th style="white-space:nowrap;">Acciones</th>
           </tr>
@@ -61,11 +62,11 @@
           {% for row in youth_rows %}
             {% set y = row[0] %}
             {% set b = row[1] %}
-            {% set att_count = row[2] if current_user.role == "ADMIN" and row|length > 2 else 0 %}
+            {% set att_count = row[2] if current_user.role in ["ADMIN", "ROOT"] and row|length > 2 else 0 %}
+            {% set streak = streaks.get(y.cedula, 0) if current_user.role in ["ADMIN", "ROOT"] else 0 %}
 
             <tr>
               <td class="fw-semibold">{{ y.full_name }}</td>
-
               <td>{{ y.cedula|fmt_cedula }}</td>
               <td>{{ y.phone|fmt_phone }}</td>
               <td>{{ b.name if b else "" }}</td>
@@ -78,11 +79,8 @@
                 {% endif %}
               </td>
 
-              {% if current_user.role == "ADMIN" %}
-                {% set streak = streaks.get(y.cedula, 0) if streaks is defined else 0 %}
-                <td>
-                  <span class="badge text-bg-light border">{{ att_count }}</span>
-                </td>
+              {% if current_user.role in ["ADMIN", "ROOT"] %}
+                <td><span class="badge text-bg-light border">{{ att_count }}</span></td>
                 <td>
                   {% if streak > 0 %}
                     <span class="badge text-bg-warning">🔥 {{ streak }}</span>
@@ -92,24 +90,23 @@
                 </td>
               {% endif %}
 
-              <td>
-                <div class="d-flex flex-wrap gap-2">
-                  <a class="btn btn-outline-primary btn-sm" href="/youth/{{ y.cedula }}/edit">Editar</a>
+              <td class="text-nowrap">
+                <a class="btn btn-outline-primary btn-sm" href="/youth/{{ y.cedula }}/edit">Editar</a>
 
-                  {% if is_root_user() %}
-                    <button type="button" class="btn btn-outline-danger btn-sm"
-                      data-bs-toggle="modal"
-                      data-bs-target="#deleteYouthModal"
-                      data-cedula="{{ y.cedula }}"
-                      data-name="{{ y.full_name }}">
-                      Eliminar
-                    </button>
-                  {% endif %}
-                </div>
+                {% if is_root_user() %}
+                  <button type="button" class="btn btn-outline-danger btn-sm"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deleteYouthModal"
+                    data-cedula="{{ y.cedula }}"
+                    data-name="{{ y.full_name }}">
+                    Eliminar
+                  </button>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}
         </tbody>
+
 
       </table>
     </div>

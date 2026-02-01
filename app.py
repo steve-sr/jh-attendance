@@ -1,14 +1,14 @@
-from datetime import datetime, date, timedelta
-from flask_login import logout_user
+# app.py
+from __future__ import annotations
+
 import csv
+from datetime import datetime, date, timedelta
 from io import StringIO
-import re
-import traceback
-import secrets
 import os
+import re
+import secrets
+import traceback
 import click
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import text, func, distinct
 
 from flask import (
     Flask,
@@ -27,23 +27,32 @@ from flask_login import (
     login_required,
     current_user,
 )
-from sqlalchemy import text
+from sqlalchemy import func, distinct, or_, text
+from sqlalchemy.exc import IntegrityError
 
 from config import Config
 from models import db, User, Youth, Barrio, Service, Attendance
 from helpers import role_required
 
 
-# -------------------------
-# Utils
-# -------------------------
+# ============================================================
+# CONFIG
+# ============================================================
+IDLE_MINUTES = int(os.getenv("IDLE_MINUTES", "15"))  # inactividad
+MAX_SERVICES_FOR_STREAK = int(os.getenv("MAX_SERVICES_FOR_STREAK", "200"))
+SYSTEM_USER = os.getenv("SYSTEM_USER", "system").strip()
+
+
+# ============================================================
+# UTILS
+# ============================================================
 def digits_only(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
 
 def validate_cedula(value: str) -> bool:
     d = digits_only(value)
-    return d.isdigit() and len(d) in (8, 9)  # ajustable
+    return d.isdigit() and len(d) in (8, 9)
 
 
 def validate_phone(value: str) -> bool:
@@ -73,17 +82,18 @@ def parse_birth_date(value: str):
     return bd
 
 
-# -------------------------
-# App + DB
-# -------------------------
+# ============================================================
+# APP + DB
+# ============================================================
 app = Flask(__name__)
 app.config.from_object(Config)
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=2)
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=IDLE_MINUTES)
 db.init_app(app)
 
-# -------------------------
-# Login Manager
-# -------------------------
+
+# ============================================================
+# LOGIN
+# ============================================================
 login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
@@ -94,9 +104,40 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
-# -------------------------
-# Helpers: servicios activos y seleccionado
-# -------------------------
+# ============================================================
+# ROOT HELPERS
+# ============================================================
+def is_root_user() -> bool:
+    return current_user.is_authenticated and getattr(current_user, "role", None) == "ROOT"
+
+
+def get_or_create_system_user() -> User:
+    """
+    Usuario técnico para reasignar asistencias cuando se elimina un usuario real.
+    """
+    u = User.query.filter_by(username=SYSTEM_USER).first()
+    if u:
+        return u
+
+    # Crear usuario "system" (no se usa para login real)
+    u = User(username=SYSTEM_USER, role="ROOT", is_active=False)
+    u.set_password(secrets.token_urlsafe(16))  # password random
+    if hasattr(u, "session_token"):
+        u.session_token = None
+
+    db.session.add(u)
+    db.session.commit()
+    return u
+
+
+@app.context_processor
+def inject_helpers():
+    return {"is_root_user": is_root_user}
+
+
+# ============================================================
+# SERVICES HELPERS
+# ============================================================
 def get_active_services():
     return Service.query.filter_by(is_active=True).order_by(Service.starts_at.desc()).all()
 
@@ -107,20 +148,10 @@ def get_selected_service():
         return None
     return Service.query.filter_by(id=service_id, is_active=True).first()
 
-def is_root_user() -> bool:
-    if not current_user.is_authenticated:
-        return False
-    root_username = os.getenv("ROOT_ADMIN_USER", "root").strip()
-    return current_user.username == root_username
 
-@app.context_processor
-def inject_root_flag():
-    return {"is_root_user": is_root_user}
-
-
-# -------------------------
-# Template filters (format + WhatsApp)
-# -------------------------
+# ============================================================
+# TEMPLATE FILTERS
+# ============================================================
 @app.template_filter("fmt_phone")
 def fmt_phone(value):
     d = digits_only(value)
@@ -132,10 +163,8 @@ def fmt_phone(value):
 @app.template_filter("fmt_cedula")
 def fmt_cedula(value):
     d = digits_only(value)
-    # 9 dígitos: 5-0448-0768
     if len(d) == 9:
         return f"{d[0]}-{d[1:5]}-{d[5:]}"
-    # 8 dígitos: 0448-0768
     if len(d) == 8:
         return f"{d[:4]}-{d[4:]}"
     return value or ""
@@ -145,10 +174,11 @@ def fmt_cedula(value):
 def wa_link(phone):
     d = digits_only(phone)
     if len(d) == 8:
-        return f"https://wa.me/506{d}"  # Costa Rica
+        return f"https://wa.me/506{d}"
     if len(d) in (11, 12, 13):  # ej: 506xxxxxxxx
         return f"https://wa.me/{d}"
     return ""
+
 
 @app.template_filter("age")
 def age_filter(birth_date):
@@ -160,62 +190,72 @@ def age_filter(birth_date):
         years -= 1
     return years
 
-from datetime import datetime, timedelta
-from flask_login import logout_user
-from flask import session, flash, redirect, url_for
 
+# ============================================================
+# SESSION POLICIES (inactividad + 1 sesión por usuario)
+# ============================================================
 @app.before_request
 def enforce_session_policies():
-    # Solo aplica si está logueado
     if not current_user.is_authenticated:
         return
 
     now = datetime.utcnow()
 
-    # --- 1) Inactividad: 15 minutos ---
+    # 1) Inactividad
     last = session.get("last_activity")
     if last:
         try:
             last_dt = datetime.fromisoformat(last)
-            if (now - last_dt) > timedelta(minutes=15):
+            if (now - last_dt) > timedelta(minutes=IDLE_MINUTES):
                 logout_user()
                 session.clear()
-                flash("Sesión cerrada por inactividad (5 minutos).", "warning")
+                flash(f"Sesión cerrada por inactividad ({IDLE_MINUTES} minutos).", "warning")
                 return redirect(url_for("login"))
         except Exception:
             logout_user()
             session.clear()
             return redirect(url_for("login"))
 
-    # --- 2) Solo 1 sesión activa por usuario ---
+    # 2) Solo 1 sesión activa por usuario
     current_token = session.get("session_token")
-    if not current_token or current_user.session_token != current_token:
+    user_token = getattr(current_user, "session_token", None)
+    if not current_token or not user_token or user_token != current_token:
         logout_user()
         session.clear()
         flash("Tu sesión fue iniciada en otro dispositivo. Se cerró esta sesión.", "warning")
         return redirect(url_for("login"))
 
-    # refrescar actividad
     session["last_activity"] = now.isoformat()
     session.permanent = True
+
+
+# ============================================================
+# CLI COMMANDS
+# ============================================================
+@app.cli.command("init-db")
+def init_db():
+    with app.app_context():
+        db.create_all()
+    print("Tablas creadas.")
+
 
 @app.cli.command("bootstrap-root")
 def bootstrap_root():
     """
-    Crea/actualiza un super admin desde variables de entorno:
-      ROOT_ADMIN_USER
-      ROOT_ADMIN_PASS
-      ROOT_ADMIN_ROLE (opcional)
+    Crea/actualiza un ROOT desde variables de entorno:
+      ROOT_ADMIN_USER (default root)
+      ROOT_ADMIN_PASS (obligatorio)
+      ROOT_ADMIN_ROLE (default ROOT)
     """
     username = os.getenv("ROOT_ADMIN_USER", "root").strip()
     password = os.getenv("ROOT_ADMIN_PASS", "").strip()
-    role = os.getenv("ROOT_ADMIN_ROLE", "ADMIN").strip().upper()
+    role = os.getenv("ROOT_ADMIN_ROLE", "ROOT").strip().upper()
 
     if not password:
         raise click.ClickException("Falta ROOT_ADMIN_PASS en variables de entorno.")
 
-    if role not in ("ADMIN", "OPERATIVE"):
-        raise click.ClickException("ROOT_ADMIN_ROLE debe ser ADMIN u OPERATIVE (recomendado ADMIN).")
+    if role not in ("ROOT", "ADMIN", "OPERATIVE"):
+        raise click.ClickException("ROOT_ADMIN_ROLE debe ser ROOT, ADMIN u OPERATIVE (recomendado ROOT).")
 
     with app.app_context():
         u = User.query.filter_by(username=username).first()
@@ -228,27 +268,21 @@ def bootstrap_root():
             u.is_active = True
             u.set_password(password)
 
+        if hasattr(u, "session_token"):
+            u.session_token = None  # invalida sesiones
+
         try:
             db.session.commit()
         except IntegrityError:
             db.session.rollback()
-            raise click.ClickException("No se pudo crear/actualizar root (revisa si el username ya existe con otra config).")
+            raise click.ClickException("No se pudo crear/actualizar root (revisa si el username ya existe).")
 
-        print(f"✅ Root listo: {username} ({role})")
-
-# -------------------------
-# CLI: init-db
-# -------------------------
-@app.cli.command("init-db")
-def init_db():
-    with app.app_context():
-        db.create_all()
-    print("✅ Tablas creadas.")
+        print(f"Root listo: {username} ({role})")
 
 
-# -------------------------
+# ============================================================
 # AUTH / DASHBOARD
-# -------------------------
+# ============================================================
 @app.get("/")
 @login_required
 def dashboard():
@@ -265,18 +299,16 @@ def login():
 
         user = User.query.filter_by(username=username, is_active=True).first()
         if user and user.check_password(password):
-            # token nuevo -> invalida sesiones anteriores
             token = secrets.token_urlsafe(32)
-            user.session_token = token
-            db.session.commit()
+            if hasattr(user, "session_token"):
+                user.session_token = token
+                db.session.commit()
 
             login_user(user)
             session["session_token"] = token
             session["last_activity"] = datetime.utcnow().isoformat()
             session.permanent = True
-
             return redirect(url_for("dashboard"))
-
 
         flash("Credenciales inválidas.", "danger")
 
@@ -287,8 +319,9 @@ def login():
 @login_required
 def logout():
     try:
-        current_user.session_token = None
-        db.session.commit()
+        if hasattr(current_user, "session_token"):
+            current_user.session_token = None
+            db.session.commit()
     except Exception:
         db.session.rollback()
 
@@ -297,15 +330,12 @@ def logout():
     return redirect(url_for("login"))
 
 
-
-# -------------------------
-# YOUTH: LIST / CREATE / EDIT
-# -------------------------
-from sqlalchemy import func, distinct, or_
-
+# ============================================================
+# YOUTH: LIST / CREATE / EDIT / DELETE (delete solo ROOT)
+# ============================================================
 @app.get("/youth")
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def youth_list():
     q = (request.args.get("q") or "").strip()
     q_digits = digits_only(q)
@@ -319,11 +349,8 @@ def youth_list():
             conditions.append(Youth.phone.like(f"%{q_digits}%"))
         return query.filter(or_(*conditions))
 
-    # -------------------------
-    # ADMIN: conteo normal + racha real
-    # -------------------------
-    if current_user.role == "ADMIN":
-        # 1) Conteo normal (total de servicios distintos asistidos)
+    # ADMIN/ROOT: total + racha real
+    if current_user.role in ("ADMIN", "ROOT"):
         subq = (
             db.session.query(
                 Attendance.youth_cedula.label("cedula"),
@@ -344,22 +371,15 @@ def youth_list():
         )
 
         query = apply_search(query)
+        youth_rows = query.order_by(Youth.full_name.asc()).limit(500).all()
 
-        youth_rows = (
-            query.order_by(Youth.full_name.asc())
-            .limit(500)
-            .all()
-        )
+        # racha real (consecutivos desde el servicio más reciente hacia atrás)
+        streaks: dict[str, int] = {}
 
-        # 2) Racha real (consecutivos desde el servicio más reciente hacia atrás)
-        streaks = {}
-
-        # servicios pasados (ya ocurridos) - ajustá el limit si querés
         recent_services = (
-            Service.query
-            .filter(Service.starts_at <= datetime.now())
+            Service.query.filter(Service.starts_at <= datetime.now())
             .order_by(Service.starts_at.desc())
-            .limit(200)
+            .limit(MAX_SERVICES_FOR_STREAK)
             .all()
         )
         service_ids = [s.id for s in recent_services]  # newest -> oldest
@@ -374,7 +394,7 @@ def youth_list():
                 .all()
             )
 
-            attended = {}
+            attended: dict[str, set[int]] = {}
             for c, sid in pairs:
                 attended.setdefault(c, set()).add(sid)
 
@@ -388,55 +408,33 @@ def youth_list():
                         break
                 streaks[c] = s
         else:
-            # si no hay servicios aún
             for row in youth_rows:
                 streaks[row[0].cedula] = 0
 
         total = query.count() if q else Youth.query.count()
+        return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total, streaks=streaks)
 
-        return render_template(
-            "youth_list.html",
-            youth_rows=youth_rows,
-            q=q,
-            total=total,
-            streaks=streaks
-        )
-
-    # -------------------------
-    # OPERATIVE: solo listado
-    # -------------------------
-    query = (
-        db.session.query(Youth, Barrio)
-        .outerjoin(Barrio, Barrio.id == Youth.barrio_id)
-    )
-
+    # OPERATIVE: listado simple
+    query = db.session.query(Youth, Barrio).outerjoin(Barrio, Barrio.id == Youth.barrio_id)
     query = apply_search(query)
 
-    youth_rows = (
-        query.order_by(Youth.full_name.asc())
-        .limit(500)
-        .all()
-    )
-
+    youth_rows = query.order_by(Youth.full_name.asc()).limit(500).all()
     total = query.count() if q else Youth.query.count()
     return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total)
 
 
 @app.route("/youth/new", methods=["GET", "POST"])
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def youth_new():
     barrios = Barrio.query.filter_by(is_active=True).order_by(Barrio.name.asc()).all()
 
     if request.method == "POST":
-        cedula_raw = request.form.get("cedula", "").strip()
+        cedula = digits_only(request.form.get("cedula", "").strip())
         full_name = request.form.get("full_name", "").strip()
-        phone_raw = request.form.get("phone", "").strip()
+        phone = digits_only(request.form.get("phone", "").strip())
         barrio_id = int(request.form.get("barrio_id"))
         birth_date_str = request.form.get("birth_date", "").strip()
-
-        cedula = digits_only(cedula_raw)
-        phone = digits_only(phone_raw)
 
         if not full_name:
             flash("El nombre es obligatorio.", "warning")
@@ -450,7 +448,6 @@ def youth_new():
             flash("Teléfono inválido. Debe tener 8 dígitos.", "warning")
             return redirect(url_for("youth_new"))
 
-        # Birth date (obligatoria en el form + backend)
         bd = parse_birth_date(birth_date_str)
         if bd is None:
             flash("La fecha de nacimiento es obligatoria.", "warning")
@@ -466,13 +463,7 @@ def youth_new():
             flash("Ya existe un joven con esa cédula.", "warning")
             return redirect(url_for("youth_new"))
 
-        y = Youth(
-            cedula=cedula,
-            full_name=full_name,
-            phone=phone,
-            barrio_id=barrio_id,
-            birth_date=bd,
-        )
+        y = Youth(cedula=cedula, full_name=full_name, phone=phone, barrio_id=barrio_id, birth_date=bd)
         db.session.add(y)
         db.session.commit()
 
@@ -484,7 +475,7 @@ def youth_new():
 
 @app.route("/youth/<cedula>/edit", methods=["GET", "POST"])
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def youth_edit(cedula):
     y = Youth.query.get_or_404(cedula)
     barrios = Barrio.query.filter_by(is_active=True).order_by(Barrio.name.asc()).all()
@@ -503,7 +494,6 @@ def youth_edit(cedula):
         y.phone = phone
         y.barrio_id = int(request.form.get("barrio_id"))
 
-        # Birth date (obligatoria)
         birth_date_str = request.form.get("birth_date", "").strip()
         bd = parse_birth_date(birth_date_str)
         if bd is None:
@@ -517,7 +507,6 @@ def youth_edit(cedula):
             return redirect(url_for("youth_edit", cedula=cedula))
 
         y.birth_date = bd
-
         db.session.commit()
         flash("Joven actualizado", "success")
         return redirect(url_for("youth_list"))
@@ -527,51 +516,40 @@ def youth_edit(cedula):
 
 @app.post("/youth/<cedula>/delete")
 @login_required
-@role_required("ADMIN")  # root es ADMIN, pero además validamos root por username
+@role_required("ROOT")
 def youth_delete(cedula):
-    if not is_root_user():
-        flash("No tenés permisos para eliminar jóvenes (solo ROOT).", "danger")
-        return redirect(url_for("youth_list"))
-
     y = Youth.query.get_or_404(cedula)
-
     try:
-        # 1) borrar asistencias del joven
         Attendance.query.filter_by(youth_cedula=cedula).delete(synchronize_session=False)
-
-        # 2) borrar joven
         db.session.delete(y)
-
         db.session.commit()
         flash("Joven eliminado (y asistencias asociadas)", "success")
     except Exception:
         db.session.rollback()
         flash("No se pudo eliminar. Revisá logs.", "danger")
-
     return redirect(url_for("youth_list"))
 
 
-# -------------------------
-# ADMIN: SERVICES + ATTENDANCE VIEW/EXPORT
-# -------------------------
+# ============================================================
+# ADMIN/ROOT: SERVICES
+# ============================================================
 @app.route("/admin/services", methods=["GET", "POST"])
 @login_required
-@role_required("ADMIN")
+@role_required("ADMIN", "ROOT")
 def admin_services():
     if request.method == "POST":
         action = request.form.get("action")
 
         if action == "create":
             title = request.form.get("title", "").strip()
-            date_str = request.form.get("service_date", "").strip()  # YYYY-MM-DD
-            time_str = request.form.get("start_time", "").strip()  # HH:MM
+            date_str = request.form.get("service_date", "").strip()
+            time_str = request.form.get("start_time", "").strip()
 
             if not title or not date_str or not time_str:
                 flash("Complete título, fecha y hora.", "warning")
                 return redirect(url_for("admin_services"))
 
             starts_at = datetime.fromisoformat(f"{date_str} {time_str}:00")
-
             s = Service(
                 title=title,
                 service_date=starts_at.date(),
@@ -587,24 +565,25 @@ def admin_services():
         elif action == "toggle":
             service_id = int(request.form.get("service_id"))
             s = Service.query.get_or_404(service_id)
-
             s.is_active = not s.is_active
             s.ends_at = None if s.is_active else datetime.now()
-
             db.session.commit()
             flash("Estado actualizado", "success")
 
     services = Service.query.order_by(Service.starts_at.desc()).limit(200).all()
     return render_template("admin_services.html", services=services)
 
+
+# ============================================================
+# ROOT: USERS
+# ============================================================
 @app.route("/admin/users", methods=["GET", "POST"])
 @login_required
-@role_required("ADMIN")
+@role_required("ROOT")
 def admin_users():
     if request.method == "POST":
         action = request.form.get("action", "")
 
-        # ---- Crear usuario ----
         if action == "create":
             username = request.form.get("username", "").strip()
             role = request.form.get("role", "").strip().upper()
@@ -614,7 +593,7 @@ def admin_users():
                 flash("Complete usuario y contraseña.", "warning")
                 return redirect(url_for("admin_users"))
 
-            if role not in ("ADMIN", "OPERATIVE"):
+            if role not in ("ROOT", "ADMIN", "OPERATIVE"):
                 flash("Rol inválido.", "warning")
                 return redirect(url_for("admin_users"))
 
@@ -624,17 +603,18 @@ def admin_users():
 
             u = User(username=username, role=role, is_active=True)
             u.set_password(password)
+            if hasattr(u, "session_token"):
+                u.session_token = None
+
             db.session.add(u)
             db.session.commit()
             flash("Usuario creado", "success")
             return redirect(url_for("admin_users"))
 
-        # ---- Activar/Desactivar ----
         if action == "toggle":
             user_id = int(request.form.get("user_id"))
             u = User.query.get_or_404(user_id)
 
-            # Evitar que te desactives a vos mismo
             if u.id == current_user.id:
                 flash("No podés desactivarte a vos mismo.", "warning")
                 return redirect(url_for("admin_users"))
@@ -644,7 +624,6 @@ def admin_users():
             flash("Estado actualizado", "success")
             return redirect(url_for("admin_users"))
 
-        # ---- Reset password ----
         if action == "reset_password":
             user_id = int(request.form.get("user_id"))
             new_password = request.form.get("new_password", "")
@@ -655,6 +634,9 @@ def admin_users():
 
             u = User.query.get_or_404(user_id)
             u.set_password(new_password)
+            if hasattr(u, "session_token"):
+                u.session_token = None  # invalida sesiones existentes
+
             db.session.commit()
             flash("Contraseña actualizada", "success")
             return redirect(url_for("admin_users"))
@@ -663,9 +645,107 @@ def admin_users():
     return render_template("admin_users.html", users=users)
 
 
+@app.post("/admin/users/<int:user_id>/delete")
+@login_required
+@role_required("ROOT")
+def admin_user_delete(user_id):
+    if user_id == current_user.id:
+        flash("No podés eliminar tu propio usuario.", "warning")
+        return redirect(url_for("admin_users"))
+
+    u = User.query.get_or_404(user_id)
+
+    if u.username == SYSTEM_USER:
+        flash("No se puede eliminar el usuario del sistema.", "warning")
+        return redirect(url_for("admin_users"))
+
+    try:
+        system_user = get_or_create_system_user()
+
+        Attendance.query.filter_by(registered_by=u.id).update(
+            {"registered_by": system_user.id},
+            synchronize_session=False,
+        )
+
+        db.session.delete(u)
+        db.session.commit()
+        flash("Usuario eliminado. Sus asistencias se reasignaron a SYSTEM", "success")
+    except Exception:
+        db.session.rollback()
+        flash("No se pudo eliminar el usuario. Revisá logs.", "danger")
+
+    return redirect(url_for("admin_users"))
+
+
+# ============================================================
+# ROOT: BARRIOS
+# ============================================================
+@app.route("/admin/barrios", methods=["GET", "POST"])
+@login_required
+@role_required("ROOT")
+def admin_barrios():
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        if action == "create":
+            name = (request.form.get("name") or "").strip()
+            if not name:
+                flash("Ingrese el nombre del barrio.", "warning")
+                return redirect(url_for("admin_barrios"))
+
+            name_clean = " ".join(name.split())
+
+            if Barrio.query.filter(func.lower(Barrio.name) == name_clean.lower()).first():
+                flash("Ese barrio ya existe.", "warning")
+                return redirect(url_for("admin_barrios"))
+
+            b = Barrio(name=name_clean, is_active=True)
+            db.session.add(b)
+            db.session.commit()
+            flash("Barrio creado", "success")
+            return redirect(url_for("admin_barrios"))
+
+        if action == "rename":
+            barrio_id = int(request.form.get("barrio_id"))
+            name = (request.form.get("name") or "").strip()
+            if not name:
+                flash("Ingrese el nuevo nombre.", "warning")
+                return redirect(url_for("admin_barrios"))
+
+            name_clean = " ".join(name.split())
+
+            exists = Barrio.query.filter(
+                func.lower(Barrio.name) == name_clean.lower(),
+                Barrio.id != barrio_id,
+            ).first()
+            if exists:
+                flash("Ya existe otro barrio con ese nombre.", "warning")
+                return redirect(url_for("admin_barrios"))
+
+            b = Barrio.query.get_or_404(barrio_id)
+            b.name = name_clean
+            db.session.commit()
+            flash("Barrio actualizado", "success")
+            return redirect(url_for("admin_barrios"))
+
+        if action == "toggle":
+            barrio_id = int(request.form.get("barrio_id"))
+            b = Barrio.query.get_or_404(barrio_id)
+            b.is_active = not b.is_active
+            db.session.commit()
+            flash("Estado actualizado", "success")
+            return redirect(url_for("admin_barrios"))
+
+    barrios = Barrio.query.order_by(Barrio.is_active.desc(), Barrio.name.asc()).all()
+    return render_template("admin_barrios.html", barrios=barrios)
+
+
+# ============================================================
+# ADMIN/ROOT: ATTENDANCE VIEW + EXPORT
+# ============================================================
 @app.get("/admin/attendance/<int:service_id>")
 @login_required
-@role_required("ADMIN")
+@role_required("ADMIN", "ROOT")
 def admin_attendance(service_id):
     s = Service.query.get_or_404(service_id)
 
@@ -683,7 +763,7 @@ def admin_attendance(service_id):
 
 @app.get("/admin/attendance/<int:service_id>/export.csv")
 @login_required
-@role_required("ADMIN")
+@role_required("ADMIN", "ROOT")
 def admin_attendance_export(service_id):
     s = Service.query.get_or_404(service_id)
 
@@ -719,7 +799,6 @@ def admin_attendance_export(service_id):
             ced_fmt = y.cedula or ""
 
         barrio_name = y.barrio.name if getattr(y, "barrio", None) else ""
-
         writer.writerow([ced_fmt, y.full_name, phone_fmt, barrio_name, wa])
 
     csv_data = output.getvalue()
@@ -733,12 +812,12 @@ def admin_attendance_export(service_id):
     )
 
 
-# -------------------------
-# OPERATIVE: SELECT SERVICE + ATTENDANCE
-# -------------------------
+# ============================================================
+# OPERATIVE/ADMIN/ROOT: SELECT SERVICE + ATTENDANCE
+# ============================================================
 @app.get("/services/select")
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def select_service():
     services = get_active_services()
     selected = get_selected_service()
@@ -747,7 +826,7 @@ def select_service():
 
 @app.post("/services/select/<int:service_id>")
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def set_service(service_id):
     s = Service.query.filter_by(id=service_id, is_active=True).first()
     if not s:
@@ -761,7 +840,7 @@ def set_service(service_id):
 
 @app.get("/attendance/active")
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def attendance_active():
     active = get_selected_service()
     q = request.args.get("q", "").strip()
@@ -779,27 +858,25 @@ def attendance_active():
         )
 
         if q:
+            q_digits = digits_only(q)
+            conditions = [Youth.full_name.ilike(f"%{q}%")]
+            if q_digits:
+                conditions.append(Youth.cedula.like(f"%{q_digits}%"))
+                conditions.append(Youth.phone.like(f"%{q_digits}%"))
+
             candidates = (
-                Youth.query.filter(
-                    (Youth.cedula.like(f"%{q}%")) | (Youth.full_name.like(f"%{q}%"))
-                )
+                Youth.query.filter(or_(*conditions))
                 .order_by(Youth.full_name.asc())
                 .limit(20)
                 .all()
             )
 
-    return render_template(
-        "attendance_active.html",
-        active=active,
-        rows=rows,
-        q=q,
-        candidates=candidates,
-    )
+    return render_template("attendance_active.html", active=active, rows=rows, q=q, candidates=candidates)
 
 
 @app.post("/attendance/active/register")
 @login_required
-@role_required("OPERATIVE", "ADMIN")
+@role_required("OPERATIVE", "ADMIN", "ROOT")
 def attendance_register_active():
     active = get_selected_service()
     if not active:
@@ -807,7 +884,6 @@ def attendance_register_active():
         return redirect(url_for("select_service"))
 
     cedula = digits_only(request.form.get("cedula", "").strip())
-
     if not validate_cedula(cedula):
         flash("Cédula inválida. Debe tener 8 o 9 dígitos.", "warning")
         return redirect(url_for("attendance_active"))
@@ -818,11 +894,7 @@ def attendance_register_active():
         return redirect(url_for("attendance_active"))
 
     try:
-        att = Attendance(
-            service_id=active.id,
-            youth_cedula=cedula,
-            registered_by=current_user.id,
-        )
+        att = Attendance(service_id=active.id, youth_cedula=cedula, registered_by=current_user.id)
         db.session.add(att)
         db.session.commit()
         flash("Asistencia registrada", "success")
@@ -833,9 +905,9 @@ def attendance_register_active():
     return redirect(url_for("attendance_active"))
 
 
-# -------------------------
-# Error handler
-# -------------------------
+# ============================================================
+# ERROR HANDLER
+# ============================================================
 @app.errorhandler(Exception)
 def handle_exception(e):
     print("🔥 ERROR:", repr(e))
@@ -843,9 +915,9 @@ def handle_exception(e):
     return "Error interno. Revisa logs.", 500
 
 
-# -------------------------
+# ============================================================
 # DB TEST
-# -------------------------
+# ============================================================
 @app.get("/db-test")
 def db_test():
     db.session.execute(text("SELECT 1"))

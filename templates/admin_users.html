@@ -84,6 +84,18 @@
                     <button class="btn btn-sm btn-outline-secondary" type="submit">
                       {% if u.is_active %}Desactivar{% else %}Activar{% endif %}
                     </button>
+
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#deleteUserModal"
+                      data-userid="{{ u.id }}"
+                      data-username="{{ u.username }}"
+                    >
+                      Eliminar
+                    </button>
+
                   </form>
 
                   <!-- Reset pass -->
@@ -123,4 +135,58 @@
   })
 })()
 </script>
+
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar eliminación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-2">
+          Vas a eliminar al usuario:
+          <b id="delUsername">—</b>
+        </p>
+        <div class="alert alert-warning mb-0">
+          Las asistencias registradas por este usuario se reasignarán a <b>SYSTEM</b>.
+          Esta acción <b>no se puede deshacer</b>.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancelar
+        </button>
+
+        <form id="delUserForm" method="post" action="">
+          <button type="submit" class="btn btn-danger">
+            Sí, eliminar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modalEl = document.getElementById("deleteUserModal");
+  if (!modalEl) return;
+
+  modalEl.addEventListener("show.bs.modal", function (event) {
+    const btn = event.relatedTarget;
+    const userId = btn.getAttribute("data-userid");
+    const username = btn.getAttribute("data-username");
+
+    document.getElementById("delUsername").textContent = username || "—";
+
+    const form = document.getElementById("delUserForm");
+    form.action = `/admin/users/${userId}/delete`;
+  });
+})();
+</script>
+
+
 {% endblock %}

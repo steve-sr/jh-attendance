@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Barrios - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">Barrios</h3>
+    <div class="text-muted">Gestiona los barrios disponibles en el formulario</div>
+  </div>
+</div>
+
+<div class="card p-3 p-md-4 mb-3">
+  <h5 class="fw-semibold mb-3">Agregar barrio</h5>
+
+  <form method="post" class="row g-2">
+    <input type="hidden" name="action" value="create">
+    <div class="col-12 col-md-8">
+      <input class="form-control" name="name" placeholder="Ej: Barrio Moracia" required>
+    </div>
+    <div class="col-12 col-md-4">
+      <button class="btn btn-primary w-100" type="submit">Agregar</button>
+    </div>
+  </form>
+</div>
+
+<div class="card p-3 p-md-4">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th style="white-space:nowrap;">Estado</th>
+          <th style="white-space:nowrap;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in barrios %}
+        <tr>
+          <td class="fw-semibold">{{ b.name }}</td>
+          <td>
+            {% if b.is_active %}
+              <span class="badge text-bg-success">Activo</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Inactivo</span>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="d-flex flex-wrap gap-2">
+              <!-- Toggle -->
+              <form method="post" class="m-0">
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="barrio_id" value="{{ b.id }}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                  {% if b.is_active %}Desactivar{% else %}Activar{% endif %}
+                </button>
+              </form>
+
+              <!-- Rename (modal simple con prompt-like) -->
+              <button class="btn btn-outline-primary btn-sm"
+                      type="button"
+                      data-bs-toggle="modal"
+                      data-bs-target="#renameModal"
+                      data-id="{{ b.id }}"
+                      data-name="{{ b.name }}">
+                Renombrar
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Renombrar -->
+<div class="modal fade" id="renameModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Renombrar barrio</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="action" value="rename">
+          <input type="hidden" name="barrio_id" id="renameId" value="">
+          <label class="form-label">Nuevo nombre</label>
+          <input class="form-control" name="name" id="renameName" required>
+          <div class="text-muted small mt-2">
+            Tip: evitá duplicados o nombres muy parecidos.
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modal = document.getElementById("renameModal");
+  if (!modal) return;
+
+  modal.addEventListener("show.bs.modal", (event) => {
+    const btn = event.relatedTarget;
+    document.getElementById("renameId").value = btn.getAttribute("data-id");
+    document.getElementById("renameName").value = btn.getAttribute("data-name");
+    setTimeout(() => document.getElementById("renameName").focus(), 100);
+  });
+})();
+</script>
+{% endblock %}
