@@ -25,7 +25,10 @@
         <div>
           <div class="text-muted small">Servicio</div>
           <h5 class="fw-bold mb-1">{{ active.title }}</h5>
-          <div class="text-muted small">{{ active.service_date }} • {{ active.starts_at }}</div>
+          <div class="text-muted small">
+            {{ active.service_date|fmt_date_cr }} • {{ active.starts_at|fmt_time_cr }}
+          </div>
+
         </div>
         <span class="badge text-bg-success mt-1">Activo</span>
       </div>
@@ -101,7 +104,7 @@
               <td class="text-muted">{{ loop.index }}</td>
               <td class="fw-semibold">{{ y.full_name }}</td>
               <td class="text-nowrap">{{ y.cedula }}</td>
-              <td class="text-nowrap">{{ att.registered_at }}</td>
+              <td class="text-nowrap">{{ att.registered_at|fmt_time_cr }}</td>
             </tr>
             {% endfor %}
           </tbody>

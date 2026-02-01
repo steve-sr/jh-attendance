@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from io import StringIO
+from zoneinfo import ZoneInfo
 import os
 import re
 import secrets
@@ -189,6 +190,49 @@ def age_filter(birth_date):
     if (today.month, today.day) < (birth_date.month, birth_date.day):
         years -= 1
     return years
+
+CR_TZ = ZoneInfo("America/Costa_Rica")
+
+def to_cr(dt):
+    """
+    Convierte un datetime a hora Costa Rica.
+    - Si viene naive (sin tzinfo), asumimos que está en UTC (común en Render).
+    - Si viene aware, lo convertimos.
+    """
+    if not dt:
+        return None
+
+    # date puro (sin hora)
+    if isinstance(dt, date) and not isinstance(dt, datetime):
+        return dt
+
+    # datetime
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)  # asumimos UTC
+    return dt.astimezone(CR_TZ)
+
+@app.template_filter("fmt_dt_cr")
+def fmt_dt_cr(dt):
+    dt = to_cr(dt)
+    if not dt:
+        return ""
+    # 01/02/2026 09:15 AM
+    return dt.strftime("%d/%m/%Y %I:%M %p")
+
+@app.template_filter("fmt_date_cr")
+def fmt_date_cr(d):
+    if not d:
+        return ""
+    # 01/02/2026
+    return d.strftime("%d/%m/%Y")
+
+@app.template_filter("fmt_time_cr")
+def fmt_time_cr(dt):
+    dt = to_cr(dt)
+    if not dt:
+        return ""
+    # 09:15 AM
+    return dt.strftime("%I:%M %p")
 
 
 # ============================================================
