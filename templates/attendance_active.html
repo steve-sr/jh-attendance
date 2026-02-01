@@ -103,7 +103,7 @@
             <tr>
               <td class="text-muted">{{ loop.index }}</td>
               <td class="fw-semibold">{{ y.full_name }}</td>
-              <td class="text-nowrap">{{ y.cedula }}</td>
+              <td class="text-nowrap">{{ y.cedula|fmt_cedula }}</td>
               <td class="text-nowrap">{{ att.registered_at|fmt_time_cr }}</td>
             </tr>
             {% endfor %}
