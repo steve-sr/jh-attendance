@@ -83,6 +83,30 @@ def parse_birth_date(value: str):
     return bd
 
 
+def format_phone_digits(value: str) -> str:
+    d = digits_only(value)
+    return f"{d[:4]}-{d[4:]}" if len(d) == 8 else (value or "")
+
+
+def format_cedula_digits(value: str) -> str:
+    d = digits_only(value)
+    if len(d) == 9:
+        return f"{d[0]}-{d[1:5]}-{d[5:]}"
+    if len(d) == 8:
+        return f"{d[:4]}-{d[4:]}"
+    return value or ""
+
+
+def calc_age(bd: date | None):
+    if not bd:
+        return ""
+    today = date.today()
+    years = today.year - bd.year
+    if (today.month, today.day) < (bd.month, bd.day):
+        years -= 1
+    return years
+
+
 # ============================================================
 # APP + DB
 # ============================================================
@@ -155,20 +179,12 @@ def get_selected_service():
 # ============================================================
 @app.template_filter("fmt_phone")
 def fmt_phone(value):
-    d = digits_only(value)
-    if len(d) == 8:
-        return f"{d[:4]}-{d[4:]}"
-    return value or ""
+    return format_phone_digits(value)
 
 
 @app.template_filter("fmt_cedula")
 def fmt_cedula(value):
-    d = digits_only(value)
-    if len(d) == 9:
-        return f"{d[0]}-{d[1:5]}-{d[5:]}"
-    if len(d) == 8:
-        return f"{d[:4]}-{d[4:]}"
-    return value or ""
+    return format_cedula_digits(value)
 
 
 @app.template_filter("wa_link")
@@ -183,55 +199,50 @@ def wa_link(phone):
 
 @app.template_filter("age")
 def age_filter(birth_date):
-    if not birth_date:
-        return ""
-    today = date.today()
-    years = today.year - birth_date.year
-    if (today.month, today.day) < (birth_date.month, birth_date.day):
-        years -= 1
-    return years
+    return calc_age(birth_date)
 
+
+# ---- Costa Rica timezone formatters ----
 CR_TZ = ZoneInfo("America/Costa_Rica")
+
 
 def to_cr(dt):
     """
     Convierte un datetime a hora Costa Rica.
     - Si viene naive (sin tzinfo), asumimos que está en UTC (común en Render).
-    - Si viene aware, lo convertimos.
     """
     if not dt:
         return None
 
-    # date puro (sin hora)
+    # date puro
     if isinstance(dt, date) and not isinstance(dt, datetime):
         return dt
 
-    # datetime
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)  # asumimos UTC
     return dt.astimezone(CR_TZ)
+
 
 @app.template_filter("fmt_dt_cr")
 def fmt_dt_cr(dt):
     dt = to_cr(dt)
     if not dt:
         return ""
-    # 01/02/2026 09:15 AM
     return dt.strftime("%d/%m/%Y %I:%M %p")
+
 
 @app.template_filter("fmt_date_cr")
 def fmt_date_cr(d):
     if not d:
         return ""
-    # 01/02/2026
     return d.strftime("%d/%m/%Y")
+
 
 @app.template_filter("fmt_time_cr")
 def fmt_time_cr(dt):
     dt = to_cr(dt)
     if not dt:
         return ""
-    # 09:15 AM
     return dt.strftime("%I:%M %p")
 
 
@@ -375,7 +386,7 @@ def logout():
 
 
 # ============================================================
-# YOUTH: LIST / CREATE / EDIT / DELETE (delete solo ROOT)
+# YOUTH: LIST / EXPORT / CREATE / EDIT / DELETE
 # ============================================================
 @app.get("/youth")
 @login_required
@@ -456,7 +467,13 @@ def youth_list():
                 streaks[row[0].cedula] = 0
 
         total = query.count() if q else Youth.query.count()
-        return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total, streaks=streaks)
+        return render_template(
+            "youth_list.html",
+            youth_rows=youth_rows,
+            q=q,
+            total=total,
+            streaks=streaks,
+        )
 
     # OPERATIVE: listado simple
     query = db.session.query(Youth, Barrio).outerjoin(Barrio, Barrio.id == Youth.barrio_id)
@@ -465,6 +482,44 @@ def youth_list():
     youth_rows = query.order_by(Youth.full_name.asc()).limit(500).all()
     total = query.count() if q else Youth.query.count()
     return render_template("youth_list.html", youth_rows=youth_rows, q=q, total=total)
+
+
+@app.get("/youth/export.csv")
+@login_required
+@role_required("ROOT")
+def youth_export_csv():
+    rows = (
+        db.session.query(Youth, Barrio)
+        .outerjoin(Barrio, Barrio.id == Youth.barrio_id)
+        .order_by(Youth.full_name.asc())
+        .all()
+    )
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["cedula", "nombre", "contacto", "barrio", "whatsapp", "edad"])
+
+    for y, b in rows:
+        phone_digits = digits_only(y.phone)
+        wa = f"https://wa.me/506{phone_digits}" if len(phone_digits) == 8 else ""
+        writer.writerow([
+            format_cedula_digits(y.cedula),
+            y.full_name,
+            format_phone_digits(y.phone),
+            (b.name if b else ""),
+            wa,
+            calc_age(y.birth_date),
+        ])
+
+    csv_data = output.getvalue()
+    output.close()
+
+    filename = f"jh_jovenes_{date.today().strftime('%Y-%m-%d')}.csv"
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @app.route("/youth/new", methods=["GET", "POST"])
@@ -511,7 +566,7 @@ def youth_new():
         db.session.add(y)
         db.session.commit()
 
-        flash("Joven registrado", "success")
+        flash("Joven registrado ✅", "success")
         return redirect(url_for("youth_list"))
 
     return render_template("youth_form.html", barrios=barrios)
@@ -552,7 +607,7 @@ def youth_edit(cedula):
 
         y.birth_date = bd
         db.session.commit()
-        flash("Joven actualizado", "success")
+        flash("Joven actualizado ✅", "success")
         return redirect(url_for("youth_list"))
 
     return render_template("youth_edit.html", y=y, barrios=barrios)
@@ -567,7 +622,7 @@ def youth_delete(cedula):
         Attendance.query.filter_by(youth_cedula=cedula).delete(synchronize_session=False)
         db.session.delete(y)
         db.session.commit()
-        flash("Joven eliminado (y asistencias asociadas)", "success")
+        flash("Joven eliminado (y asistencias asociadas) ✅", "success")
     except Exception:
         db.session.rollback()
         flash("No se pudo eliminar. Revisá logs.", "danger")
@@ -604,7 +659,7 @@ def admin_services():
             )
             db.session.add(s)
             db.session.commit()
-            flash("Servicio creado (puedes activarlo)", "success")
+            flash("Servicio creado ✅ (puedes activarlo)", "success")
 
         elif action == "toggle":
             service_id = int(request.form.get("service_id"))
@@ -612,7 +667,7 @@ def admin_services():
             s.is_active = not s.is_active
             s.ends_at = None if s.is_active else datetime.now()
             db.session.commit()
-            flash("Estado actualizado", "success")
+            flash("Estado actualizado ✅", "success")
 
     services = Service.query.order_by(Service.starts_at.desc()).limit(200).all()
     return render_template("admin_services.html", services=services)
@@ -652,7 +707,7 @@ def admin_users():
 
             db.session.add(u)
             db.session.commit()
-            flash("Usuario creado", "success")
+            flash("Usuario creado ✅", "success")
             return redirect(url_for("admin_users"))
 
         if action == "toggle":
@@ -665,7 +720,7 @@ def admin_users():
 
             u.is_active = not u.is_active
             db.session.commit()
-            flash("Estado actualizado", "success")
+            flash("Estado actualizado ✅", "success")
             return redirect(url_for("admin_users"))
 
         if action == "reset_password":
@@ -679,10 +734,10 @@ def admin_users():
             u = User.query.get_or_404(user_id)
             u.set_password(new_password)
             if hasattr(u, "session_token"):
-                u.session_token = None  # invalida sesiones existentes
+                u.session_token = None
 
             db.session.commit()
-            flash("Contraseña actualizada", "success")
+            flash("Contraseña actualizada ✅", "success")
             return redirect(url_for("admin_users"))
 
     users = User.query.order_by(User.role.desc(), User.username.asc()).all()
@@ -713,7 +768,7 @@ def admin_user_delete(user_id):
 
         db.session.delete(u)
         db.session.commit()
-        flash("Usuario eliminado. Sus asistencias se reasignaron a SYSTEM", "success")
+        flash("Usuario eliminado. Sus asistencias se reasignaron a SYSTEM ✅", "success")
     except Exception:
         db.session.rollback()
         flash("No se pudo eliminar el usuario. Revisá logs.", "danger")
@@ -746,7 +801,7 @@ def admin_barrios():
             b = Barrio(name=name_clean, is_active=True)
             db.session.add(b)
             db.session.commit()
-            flash("Barrio creado", "success")
+            flash("Barrio creado ✅", "success")
             return redirect(url_for("admin_barrios"))
 
         if action == "rename":
@@ -769,7 +824,7 @@ def admin_barrios():
             b = Barrio.query.get_or_404(barrio_id)
             b.name = name_clean
             db.session.commit()
-            flash("Barrio actualizado", "success")
+            flash("Barrio actualizado ✅", "success")
             return redirect(url_for("admin_barrios"))
 
         if action == "toggle":
@@ -777,7 +832,7 @@ def admin_barrios():
             b = Barrio.query.get_or_404(barrio_id)
             b.is_active = not b.is_active
             db.session.commit()
-            flash("Estado actualizado", "success")
+            flash("Estado actualizado ✅", "success")
             return redirect(url_for("admin_barrios"))
 
     barrios = Barrio.query.order_by(Barrio.is_active.desc(), Barrio.name.asc()).all()
@@ -828,22 +883,14 @@ def admin_attendance_export(service_id):
         phone_digits = digits_only(y.phone)
         wa = f"https://wa.me/506{phone_digits}" if len(phone_digits) == 8 else ""
 
-        phone_fmt = (
-            f"{phone_digits[:4]}-{phone_digits[4:]}"
-            if len(phone_digits) == 8
-            else (y.phone or "")
-        )
-
-        ced = digits_only(y.cedula)
-        if len(ced) == 9:
-            ced_fmt = f"{ced[0]}-{ced[1:5]}-{ced[5:]}"
-        elif len(ced) == 8:
-            ced_fmt = f"{ced[:4]}-{ced[4:]}"
-        else:
-            ced_fmt = y.cedula or ""
-
         barrio_name = y.barrio.name if getattr(y, "barrio", None) else ""
-        writer.writerow([ced_fmt, y.full_name, phone_fmt, barrio_name, wa])
+        writer.writerow([
+            format_cedula_digits(y.cedula),
+            y.full_name,
+            format_phone_digits(y.phone),
+            barrio_name,
+            wa,
+        ])
 
     csv_data = output.getvalue()
     output.close()
@@ -941,7 +988,7 @@ def attendance_register_active():
         att = Attendance(service_id=active.id, youth_cedula=cedula, registered_by=current_user.id)
         db.session.add(att)
         db.session.commit()
-        flash("Asistencia registrada", "success")
+        flash("Asistencia registrada ✅", "success")
     except Exception:
         db.session.rollback()
         flash("Ya estaba registrado en este servicio.", "info")
@@ -965,7 +1012,7 @@ def handle_exception(e):
 @app.get("/db-test")
 def db_test():
     db.session.execute(text("SELECT 1"))
-    return "DB OK"
+    return "DB OK ✅"
 
 
 if __name__ == "__main__":
