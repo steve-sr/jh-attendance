@@ -10,6 +10,12 @@ import re
 import secrets
 import traceback
 import click
+import hmac
+import hashlib
+import base64
+import urllib.parse
+import qrcode
+from io import BytesIO
 
 from flask import (
     Flask,
